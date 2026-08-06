@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resiliencia Urbana — Repositorio Geoespacial</title>
+<link rel="icon" type="image/png" href="assets/logo-resiliencia-urbana.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_ds/nocturne-62227741-f192-471f-9c24-6dc1d86a8029/styles.css">
+<script src="_ds/nocturne-62227741-f192-471f-9c24-6dc1d86a8029/_ds_bundle.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="image-slot.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<style>
+  :root{
+    --font-sf: -apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
+    --eje-urb:#1a2f6b; --eje-soc:#c9860a; --eje-amb:#0f5c3f;
+    --panel:#ffffff; --page-bg:#fbfbfd; --color-error:#b3261e;
+    --color-bg: rgba(255,255,255,.8); --color-text:#1d1d1f;
+    --color-accent:#1a2f6b;
+    --color-accent-100:#e9ecf6; --color-accent-200:#ccd3ea; --color-accent-300:#9aa6d2;
+    --color-accent-400:#5566a3; --color-accent-500:#1a2f6b; --color-accent-600:#142457;
+    --color-accent-700:#101d47; --color-accent-800:#0b1533; --color-accent-900:#070e20;
+    --color-divider: rgba(0,0,0,.08);
+    --color-neutral-100:#f5f5f7; --color-neutral-200:#e8e8ed;
+    --color-neutral-300:#d2d2d7; --color-neutral-400:#a1a1a6;
+    --color-neutral-500:#86868b; --color-neutral-600:#6e6e73;
+    --color-neutral-700:#48484a; --color-neutral-800:#1d1d1f;
+    --color-neutral-900:#000000;
+    --ease-out: cubic-bezier(.23,1,.32,1);
+    --ease-in-out: cubic-bezier(.77,0,.175,1);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;overflow:hidden;font-size:14px;font-family:var(--font-sf);color:var(--color-text);
+    background:var(--page-bg)}
+  button{font-family:inherit}
+
+  /* ---- shell ---- */
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{display:flex;align-items:center;gap:var(--space-8);padding:0 var(--space-8);
+    height:56px;flex:none;border-bottom:1px solid var(--color-divider);background:var(--color-bg);
+    backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%)}
+  .brand{display:flex;align-items:center;gap:var(--space-4);min-width:0}
+  .brand-logo{width:36px;height:36px;border-radius:var(--radius-sm);flex:none;overflow:hidden}
+  .brand-text{display:flex;flex-direction:column;justify-content:center;min-width:0}
+  .brand-mark{font-family:var(--font-sf);font-weight:600;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
+  .brand-sub{font-size:11px;color:var(--color-neutral-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tabs{display:flex;gap:var(--space-1);margin-left:auto}
+  .tab{appearance:none;background:transparent;border:1px solid transparent;color:var(--color-neutral-600);
+    font-family:var(--font-sf);font-weight:500;font-size:13px;padding:var(--space-2) var(--space-4);
+    border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;
+    transition:background 150ms var(--ease-out),color 150ms var(--ease-out),transform 120ms var(--ease-out)}
+  .tab:hover{background:color-mix(in srgb,var(--color-accent) 8%,transparent);color:var(--color-text)}
+  .tab:active{transform:scale(.97)}
+  .tab[aria-selected="true"]{color:var(--color-accent-700);border-color:var(--color-accent)}
+  .who{display:flex;align-items:center;gap:var(--space-3);font-size:12px;color:var(--color-neutral-600)}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--color-accent-100);
+    color:var(--color-accent-700);display:grid;place-items:center;font-size:10px;font-weight:600;font-family:var(--font-sf)}
+
+  .view{flex:1;min-height:0;overflow:auto;display:none}
+  .view[data-active]{display:block}
+  .view[data-view="mapa"]{overflow:hidden}
+
+  /* ---- generic bits ---- */
+  .panel{background:var(--panel);border:1px solid var(--color-neutral-300);border-radius:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,.1),0 2px 14px rgba(0,0,0,.08)}
+  .phead{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-6);
+    border-bottom:1px solid var(--color-divider)}
+  .phead h3{margin:0;font-size:13px;font-weight:500}
+  .kicker{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-neutral-500);
+    font-weight:500;font-family:var(--font-sf)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .muted{color:var(--color-neutral-600)}
+  .tagx{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;padding:2px 7px;border-radius:999px;
+    border:1px solid transparent;font-weight:500;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .btn{min-height:32px;transition:transform 140ms var(--ease-out)}
+  .btn:active{transform:scale(.97)}
+  .btn-sm{font-size:12px;padding:4px 10px;min-height:28px}
+  .iconbtn{appearance:none;background:transparent;border:1px solid var(--color-neutral-300);
+    color:var(--color-neutral-600);border-radius:var(--radius-sm);width:26px;height:26px;
+    display:grid;place-items:center;cursor:pointer;flex:none;
+    transition:border-color 150ms var(--ease-out),color 150ms var(--ease-out),transform 120ms var(--ease-out)}
+  .iconbtn:hover{border-color:var(--color-accent);color:var(--color-accent-700)}
+  .iconbtn:active{transform:scale(.94)}
+  svg{display:block}
+
+  /* ---- dashboard ---- */
+  .dash{padding:var(--space-8) var(--space-8) 48px;max-width:1560px}
+  .dash-head{display:flex;align-items:flex-end;gap:var(--space-8);margin-bottom:var(--space-8);flex-wrap:wrap}
+  .dash-head h1{font-family:var(--font-sf);font-size:34px;font-weight:600;letter-spacing:-.03em;margin:0 0 4px}
+  .seg{display:inline-flex;border:1px solid var(--color-neutral-300);border-radius:999px;overflow:hidden;margin-left:auto}
+  .seg button{appearance:none;background:transparent;border:0;border-right:1px solid var(--color-neutral-200);
+    color:var(--color-neutral-600);font-size:11.5px;font-weight:500;padding:7px 12px;cursor:pointer;
+    transition:background 150ms var(--ease-out),color 150ms var(--ease-out)}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:color-mix(in srgb,var(--color-accent) 10%,transparent)}
+  .seg button:active{transform:scale(.97)}
+  .seg button[aria-pressed="true"]{background:var(--color-accent-100);color:var(--color-accent-700)}
+
+  .grid{display:grid;gap:var(--space-6)}
+  /* layout A — métricas full, recientes ancho + torta al lado, ejes abajo */
+  .grid.la{grid-template-columns:repeat(3,1fr);
+    grid-template-areas:"kpi kpi kpi" "rec rec pie" "eje eje pie"}
+  /* layout B — dos columnas: catálogo domina la izquierda */
+  .grid.lb{grid-template-columns:1.35fr .9fr;
+    grid-template-areas:"rec kpi" "rec pie" "eje eje"}
+  /* layout C — resumen por eje como protagonista, en banda */
+  .grid.lc{grid-template-columns:repeat(3,1fr);
+    grid-template-areas:"eje eje pie" "kpi kpi pie" "rec rec rec"}
+  .a-kpi{grid-area:kpi}.a-rec{grid-area:rec}.a-pie{grid-area:pie}.a-eje{grid-area:eje}
+  @media (max-width:1080px){
+    .grid.la,.grid.lb,.grid.lc{grid-template-columns:1fr;
+      grid-template-areas:"kpi" "rec" "pie" "eje"}
+  }
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6)}
+  .kpi{padding:var(--space-6);position:relative;overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.1),0 2px 14px rgba(0,0,0,.08);
+    transition:transform 180ms var(--ease-out),box-shadow 180ms var(--ease-out)}
+  .kpi:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
+  .kpi .n{font-family:var(--font-sf);font-size:36px;font-weight:600;letter-spacing:-.03em;line-height:1}
+  .kpi .l{font-size:11.5px;color:var(--color-neutral-600);margin-top:6px}
+  .kpi .mark{position:absolute;top:0;left:var(--space-6);width:22px;height:2px;background:var(--color-accent)}
+  .kpi .d{font-size:11px;color:var(--eje-amb);margin-top:6px}
+  @media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
+
+  .rows{display:flex;flex-direction:column}
+  .row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:var(--space-6);
+    padding:var(--space-4) var(--space-6);border-bottom:1px solid var(--color-divider);font-size:13px;
+    transition:background 150ms var(--ease-out)}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:color-mix(in srgb,var(--color-accent) 6%,transparent)}
+  .row .fname{font-weight:500}
+  .row .fpath{font-size:11px;color:var(--color-neutral-600);margin-top:2px}
+  .fmt{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+    font-size:9px;font-weight:600;letter-spacing:.02em;flex:none;
+    background:var(--color-accent-100);color:var(--color-accent-700);border:1px solid var(--color-accent-300)}
+
+  .ejecards{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-6)}
+  @media (max-width:900px){.ejecards{grid-template-columns:1fr}}
+  .ejecard{padding:var(--space-6);border-top-width:1px;position:relative;overflow:hidden;border-radius:18px;
+    transition:transform 180ms var(--ease-out),box-shadow 180ms var(--ease-out)}
+  .ejecard:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .ejecard .bar{position:absolute;inset:0 auto 0 0;width:3px}
+  .ejecard h4{margin:0;font-size:16px;font-family:var(--font-sf);font-weight:600;letter-spacing:-.01em}
+  .ejecard .cnt{font-family:var(--font-sf);font-size:28px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:var(--space-4)}
+  .chip{font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--color-neutral-100);
+    border:1px solid var(--color-neutral-200);color:var(--color-neutral-700)}
+
+  .pielegend{display:flex;flex-direction:column;gap:var(--space-3);font-size:12px}
+  .pielegend .li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--space-3);cursor:default}
+  .pielegend .li:hover .lname{color:var(--color-text)}
+  .lname{color:var(--color-neutral-700);transition:color 150ms var(--ease-out)}
+  .pct{font-variant-numeric:tabular-nums;color:var(--color-neutral-700)}
+  #donutCenter{text-anchor:middle}
+
+  /* ---- mapa ---- */
+  .mapwrap::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(150,150,160,.16), transparent 38%),
+      radial-gradient(circle at 80% 85%, rgba(120,120,135,.14), transparent 42%);
+    filter:blur(40px)}
+  .maplayout{display:grid;grid-template-columns:326px 1fr;height:100%;background:#000000}
+  .sidebar{border-right:1px solid #222;display:flex;flex-direction:column;min-height:0;background:#0a0a0a}
+  .sb-head{padding:var(--space-6);border-bottom:1px solid var(--color-neutral-800)}
+  .sb-scroll{overflow:auto;flex:1;padding:var(--space-4) 0 var(--space-8)}
+  .sb-foot{border-top:1px solid var(--color-neutral-800);padding:var(--space-4) var(--space-6);display:flex;gap:var(--space-3);align-items:center}
+  .input{width:100%;background:var(--color-neutral-100);border:1px solid var(--color-neutral-300);
+    color:var(--color-text);border-radius:var(--radius-md);padding:7px 10px;font-size:13px;font-family:inherit}
+  .input:focus-visible{outline:2px solid var(--color-accent);outline-offset:1px}
+  select.input{cursor:pointer}
+
+  .grp{margin-bottom:var(--space-2)}
+  .grp-head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-6);cursor:pointer;user-select:none;
+    transition:background 150ms var(--ease-out)}
+  .grp-head:hover{background:color-mix(in srgb,var(--color-accent) 6%,transparent)}
+  .grp-name{font-family:var(--font-heading);font-weight:500;font-size:12.5px;flex:1}
+  .grp-cnt{font-size:10.5px;color:var(--color-neutral-600)}
+  .caret{transition:transform 180ms var(--ease-out);color:var(--color-neutral-600)}
+  .grp[data-open="false"] .caret{transform:rotate(-90deg)}
+  .grp[data-open="false"] .grp-body{display:none}
+  .lyr{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:var(--space-3);
+    padding:6px var(--space-6) 6px 30px;font-size:12.5px;transition:background 150ms var(--ease-out)}
+  .lyr:hover{background:color-mix(in srgb,var(--color-accent) 6%,transparent)}
+  .lyr .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-neutral-700);cursor:pointer;transition:color 150ms var(--ease-out)}
+  .lyr[data-on="true"] .nm{color:var(--color-text)}
+  .sw{width:12px;height:12px;border-radius:3px;flex:none;opacity:.35;transition:opacity 150ms var(--ease-out)}
+  .lyr[data-on="true"] .sw{opacity:1}
+  .lyr .acts{display:flex;gap:4px;opacity:0;transition:opacity 120ms var(--ease-out)}
+  .lyr:hover .acts,.lyr:focus-within .acts{opacity:1}
+  .tgl{appearance:none;width:26px;height:15px;border-radius:999px;background:var(--color-neutral-300);
+    border:1px solid var(--color-neutral-400);position:relative;cursor:pointer;flex:none;
+    transition:background 150ms var(--ease-out),transform 120ms var(--ease-out)}
+  .tgl:active{transform:scale(.94)}
+  .tgl::after{content:"";position:absolute;top:1.5px;left:1.5px;width:10px;height:10px;border-radius:50%;
+    background:#ffffff;transition:transform 180ms var(--ease-out),background 150ms var(--ease-out)}
+  .tgl:checked{background:var(--color-accent);border-color:var(--color-accent-600)}
+  .tgl:checked::after{transform:translateX(11px);background:#ffffff}
+  .meta{padding:0 var(--space-6) 0 30px;font-size:11px;color:var(--color-neutral-600);
+    display:grid;grid-template-rows:0fr;opacity:0;overflow:hidden;border-bottom:0 solid var(--color-divider);
+    transition:grid-template-rows 200ms var(--ease-in-out),opacity 160ms var(--ease-out),padding 200ms var(--ease-in-out)}
+  .meta > div{min-height:0;overflow:hidden}
+  .lyr-wrap[data-expanded="true"] .meta{grid-template-rows:1fr;opacity:1;padding:var(--space-3) var(--space-6) var(--space-4) 30px;border-bottom-width:1px}
+  .meta dl{display:grid;grid-template-columns:auto 1fr;gap:3px var(--space-4);margin:0 0 var(--space-3)}
+  .meta dt{color:var(--color-neutral-600)}
+  .meta dd{margin:0;color:var(--color-neutral-800)}
+  .filelist{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+  .filelist span{font-size:9.5px;padding:1px 5px;border-radius:3px;background:var(--color-neutral-100);
+    border:1px solid var(--color-neutral-200);color:var(--color-neutral-600)}
+
+  .mapwrap{position:relative;min-height:0;background:#000000}
+  #map{position:absolute;inset:0;background:#000000}
+  .leaflet-container{background:#000000;font-family:var(--font-body)}
+  .leaflet-tile-pane{filter:none}
+  .leaflet-control-attribution{background:rgba(22,24,38,.82)!important;color:var(--color-neutral-500)!important;font-size:9.5px!important}
+  .leaflet-control-attribution a{color:var(--color-neutral-400)!important}
+  .leaflet-bar{border:1px solid var(--color-neutral-800)!important;box-shadow:none!important}
+  .leaflet-bar a{background:#1c1e2b!important;color:var(--color-neutral-300)!important;
+    border-bottom-color:var(--color-neutral-800)!important}
+  .leaflet-bar a:hover{background:var(--color-accent-800)!important;color:var(--color-accent-100)!important}
+  .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1c1e2b;color:#e9e9ed;
+    box-shadow:var(--shadow-md);border-radius:var(--radius-md)}
+  .leaflet-popup-content{margin:12px 14px;font-size:12px;line-height:1.5}
+  .leaflet-popup-content h4{margin:0 0 6px;font-size:13px}
+  .leaflet-popup-close-button{color:var(--color-neutral-500)!important}
+  .pop-dl{margin-top:9px}
+
+  .overlay{position:absolute;z-index:500;pointer-events:none}
+  .overlay > *{pointer-events:auto}
+  .legend{bottom:var(--space-6);left:var(--space-6);background:rgba(28,30,43,.93);
+    border:1px solid var(--color-neutral-800);border-radius:var(--radius-md);padding:var(--space-4) var(--space-6);
+    backdrop-filter:blur(6px)}
+  .legend .li{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--color-neutral-400);margin-top:5px}
+  .mapnote{top:var(--space-6);right:var(--space-6);max-width:270px;background:rgba(28,30,43,.93);
+    border:1px solid var(--color-neutral-800);border-left:2px solid var(--color-accent);
+    border-radius:var(--radius-md);padding:var(--space-4) var(--space-6);font-size:11px;
+    color:var(--color-neutral-400);backdrop-filter:blur(6px);line-height:1.5}
+  .mapnote strong{color:var(--color-neutral-200);font-weight:500}
+
+  /* ---- admin ---- */
+  .admin{padding:var(--space-8);max-width:1180px;display:grid;gap:var(--space-8)}
+  .drop{border:1px dashed var(--color-neutral-300);border-radius:var(--radius-md);padding:38px var(--space-8);
+    text-align:center;background:color-mix(in srgb,var(--color-accent) 3%,transparent);cursor:pointer}
+  .drop[data-hot="true"]{border-color:var(--color-accent);background:color-mix(in srgb,var(--color-accent) 9%,transparent)}
+  .drop h3{margin:0 0 4px;font-size:15px}
+  .form{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-6);padding:var(--space-6)}
+  .form label{display:block;font-size:11px;color:var(--color-neutral-600);margin-bottom:4px}
+  .form .full{grid-column:1/-1}
+  @media (max-width:820px){.form{grid-template-columns:1fr}}
+  .setrow{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-6);
+    border-bottom:1px solid var(--color-divider);font-size:12.5px}
+  .setrow:last-child{border-bottom:0}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tbl th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--color-neutral-600);font-weight:500;padding:var(--space-3) var(--space-6);
+    border-bottom:1px solid var(--color-divider)}
+  table.tbl td{padding:var(--space-3) var(--space-6);border-bottom:1px solid var(--color-divider);color:var(--color-neutral-800)}
+  table.tbl tr td{transition:background 150ms var(--ease-out)}
+  table.tbl tr:hover td{background:color-mix(in srgb,var(--color-accent) 5%,transparent)}
+
+  /* ---- modal ---- */
+  .backdrop{position:fixed;inset:0;background:rgba(20,22,30,0);backdrop-filter:blur(0);
+    display:none;place-items:center;z-index:2000;padding:var(--space-8);
+    transition:background 200ms var(--ease-out),backdrop-filter 200ms var(--ease-out)}
+  .backdrop[data-open="true"]{display:grid;background:rgba(0,0,0,.4);backdrop-filter:blur(6px)}
+  .modal{width:min(560px,100%);background:#ffffff;border:1px solid var(--color-neutral-200);
+    border-radius:22px;box-shadow:var(--shadow-lg);max-height:88vh;overflow:auto;
+    transform:scale(.96);opacity:0;transition:transform 220ms var(--ease-out),opacity 220ms var(--ease-out)}
+  .backdrop[data-open="true"] .modal{transform:scale(1);opacity:1}
+  .modal .mhead{padding:var(--space-8) var(--space-8) var(--space-4)}
+  .modal h2{margin:0 0 4px;font-size:22px;font-family:var(--font-sf);font-weight:600;letter-spacing:-.02em}
+  .mbody{padding:0 var(--space-8) var(--space-8);display:grid;gap:var(--space-6)}
+  .mfoot{display:flex;gap:var(--space-3);justify-content:flex-end;padding:var(--space-6) var(--space-8);
+    border-top:1px solid var(--color-divider)}
+  .lic{background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);
+    border-radius:var(--radius-md);padding:var(--space-6);font-size:12px;color:var(--color-neutral-700);line-height:1.55}
+  .cite{font-size:11.5px;line-height:1.6;color:var(--color-neutral-800);background:var(--color-accent-100);
+    border:1px solid var(--color-accent-300);border-radius:var(--radius-sm);padding:var(--space-4)}
+  .steps{display:flex;gap:var(--space-3);align-items:center;font-size:11px;color:var(--color-neutral-600)}
+  .steps b{color:var(--color-accent-700)}
+  .check{display:flex;gap:var(--space-3);align-items:flex-start;font-size:12px;color:var(--color-neutral-700);cursor:pointer}
+  .check input{margin:2px 0 0;accent-color:var(--color-accent)}
+  .err{font-size:11.5px;color:var(--color-error);min-height:15px}
+  .zipfiles{display:grid;gap:4px;font-size:11.5px}
+  .zipfiles div{display:flex;gap:var(--space-3);align-items:center;color:var(--color-neutral-700)}
+  .spin{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--color-accent-200);
+    border-top-color:var(--color-accent);animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .toast{position:fixed;bottom:var(--space-8);left:50%;transform:translate(-50%,20px) scale(.97);opacity:0;
+    background:#ffffff;border:1px solid var(--color-neutral-200);border-radius:999px;
+    padding:var(--space-4) var(--space-8);font-size:12.5px;z-index:3000;box-shadow:var(--shadow-md);
+    transition:transform 220ms var(--ease-out),opacity 220ms var(--ease-out)}
+  .toast[data-show="true"]{opacity:1;transform:translate(-50%,0) scale(1);
+    transition:transform 140ms var(--ease-out),opacity 140ms var(--ease-out)}
+
+  .view[data-view="mapa"] .kicker{color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .input{background:#232532;border-color:var(--color-neutral-700);color:#e9e9ed}
+  .view[data-view="mapa"] .muted{color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .grp-head:hover{background:color-mix(in srgb,var(--color-accent) 10%,transparent)}
+  .view[data-view="mapa"] .grp-cnt{color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .caret{color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .meta{border-bottom-color:var(--color-neutral-800)}
+  .view[data-view="mapa"] .lyr:hover{background:color-mix(in srgb,var(--color-accent) 10%,transparent)}
+  .view[data-view="mapa"] .lyr .nm{color:var(--color-neutral-300)}
+  .view[data-view="mapa"] .lyr[data-on="true"] .nm{color:#e9e9ed}
+  .view[data-view="mapa"] .iconbtn{border-color:var(--color-neutral-700);color:var(--color-neutral-400)}
+  .view[data-view="mapa"] .meta{color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .meta dt{color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .meta dd{color:var(--color-neutral-300)}
+  .view[data-view="mapa"] .filelist span{background:var(--color-neutral-900);border-color:var(--color-neutral-800);color:var(--color-neutral-500)}
+  .view[data-view="mapa"] .tgl{background:var(--color-neutral-800);border-color:var(--color-neutral-700)}
+  .view[data-view="mapa"] .tgl::after{background:var(--color-neutral-400)}
+  .view[data-view="mapa"] .tgl:checked::after{background:#fff}
+  .view[data-view="mapa"] .grp-name{color:#e9e9ed}
+  .view[data-view="mapa"] .brand-mark{color:#e9e9ed}
+  .gcard{padding:var(--space-6);display:grid;gap:var(--space-4)}
+  .gcard .grow{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-4)}
+  @media (max-width:820px){.gcard .grow{grid-template-columns:1fr}}
+  .gcard label{display:block;font-size:11px;color:var(--color-neutral-600);margin-bottom:4px}
+  .gpill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;padding:3px 9px;border-radius:999px;width:fit-content}
+  .gpill[data-state="off"]{background:var(--color-neutral-100);color:var(--color-neutral-600);border:1px solid var(--color-neutral-200)}
+  .gpill[data-state="on"]{background:color-mix(in srgb,var(--eje-amb) 14%,transparent);color:var(--eje-amb);border:1px solid color-mix(in srgb,var(--eje-amb) 40%,transparent)}
+  .gpill[data-state="err"]{background:color-mix(in srgb,var(--color-error) 12%,transparent);color:var(--color-error);border:1px solid color-mix(in srgb,var(--color-error) 40%,transparent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <image-slot id="brandLogo" class="brand-logo" shape="rounded" src="assets/logo-resiliencia-urbana.png" placeholder="Isologo Gobierno + MOPC"></image-slot>
+      <div class="brand-text">
+        <span class="brand-mark">Resiliencia Urbana · Repositorio Geoespacial</span>
+        <span class="brand-sub">Resiliencia Urbana de la Franja Costera de Asunción</span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-view="dashboard">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        Dashboard</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="mapa">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 2.5 2 4v9.5L6 12l4 1.5 4-1.5V2.5L10 4 6 2.5Z"/><path d="M6 2.5V12M10 4v9.5"/></svg>
+        Explorar mapa</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="admin">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 11V3m0 0L5 6m3-3 3 3"/><path d="M2.5 11v1.5A1 1 0 0 0 3.5 13.5h9a1 1 0 0 0 1-1V11"/></svg>
+        Administrar</button>
+    </nav>
+    <div class="who"><span>Equipo SIG</span><div class="avatar">SIG</div></div>
+  </header>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="view" data-view="dashboard" data-active>
+    <div class="dash">
+      <div class="dash-head">
+        <div>
+          <div class="kicker">Panel de control</div>
+          <h1>Estado del repositorio</h1>
+          <p class="muted" style="margin:0;font-size:12.5px">Unidad compartida <a href="https://drive.google.com/drive/u/2/folders/1wZRVnMicmCuvqWUDd5tcmABx5HfyV1Ne" target="_blank" rel="noopener" class="mono">/Franja_Costera/</a> · sincronizada hace 12 min</p>
+        </div>
+      </div>
+
+      <div class="grid la" id="dashGrid">
+        <div class="a-kpi kpis" id="kpis"></div>
+
+        <div class="a-rec panel">
+          <div class="phead">
+            <h3>Últimos 5 archivos subidos</h3>
+            <span class="muted" style="font-size:11px">orden por fecha de carga</span>
+            <button class="btn btn-ghost btn-sm" style="margin-left:auto" data-goto="admin">Ver todos →</button>
+          </div>
+          <div class="rows" id="recentRows"></div>
+        </div>
+
+        <div class="a-pie panel">
+          <div class="phead"><h3>Composición por tipo de dato</h3></div>
+          <div style="padding:var(--space-8) var(--space-6);display:grid;gap:var(--space-8);justify-items:center">
+            <svg id="donut" width="196" height="196" viewBox="0 0 196 196" role="img" aria-label="Distribución de formatos"></svg>
+            <div class="pielegend" id="pieLegend" style="width:100%"></div>
+          </div>
+        </div>
+
+        <div class="a-eje">
+          <div class="ejecards" id="ejeCards"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MAPA ============ -->
+  <section class="view" data-view="mapa">
+    <div class="maplayout">
+      <aside class="sidebar">
+        <div class="sb-head">
+          <div class="kicker" style="margin-bottom:6px">Capas del repositorio</div>
+          <div class="seg" id="groupSeg" style="margin:0 0 var(--space-4)">
+            <button data-group="eje" aria-pressed="true">Por eje</button>
+            <button data-group="zona" aria-pressed="false">Por zona</button>
+          </div>
+          <input class="input" id="layerSearch" type="search" placeholder="Buscar capa…" autocomplete="off">
+        </div>
+        <div class="sb-scroll" id="layerTree"></div>
+        <div class="sb-foot">
+          <span class="muted mono" style="font-size:11px" id="activeCount">0 activas</span>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto" id="dlActive">Descargar activas (ZIP)</button>
+        </div>
+      </aside>
+      <div class="mapwrap">
+        <div id="map"></div>
+        <div class="overlay mapnote">
+          <strong>Vista previa de geometría.</strong> Los contornos que ves son una representación de cada capa para ubicarla en el territorio. El ZIP entrega la carpeta completa del repositorio, con los 6 archivos que necesita cada shapefile.
+        </div>
+        <div class="overlay legend" id="mapLegend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN ============ -->
+  <section class="view" data-view="admin">
+    <div class="admin">
+      <div>
+        <div class="kicker">Administración</div>
+        <h1 style="font-size:26px;margin:0 0 4px">Sincronizar el repositorio</h1>
+        <p class="muted" style="font-size:12.5px;max-width:64ch">Cargar y clasificar datos ahora se hace en tu planilla maestra y en Drive. Conectá la cuenta acá para traer ese catálogo al dashboard, el mapa y la descarga.</p>
+      </div>
+
+      <div class="panel gcard">
+        <div class="phead" style="padding:0;border:0">
+          <h3>Conexión con Google Drive</h3>
+          <span class="gpill" id="gPill" data-state="off">Sin conectar</span>
+        </div>
+        <p class="muted" style="font-size:11.5px;margin:0;max-width:70ch">Conectá tu cuenta de Google para leer tu planilla maestra <span class="mono">resiliencia_metadata</span>: cada fila se cataloga con el nombre de la columna <span class="mono">titulo</span>, clasificada por <span class="mono">tipologia</span> (eje) y <span class="mono">subproyecto</span> (zona), y la columna <span class="mono">ubicacion</span> se usa para ubicar la carpeta real en Drive y traer sus archivos.</p>
+        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="gConnect">Conectar con Google</button>
+          <button class="btn btn-ghost btn-sm" id="gSync" disabled>Sincronizar planilla</button>
+          <span class="muted" style="font-size:11px" id="gStatus"></span>
+        </div>
+      </div>
+
+      <div class="panel gcard">
+        <div class="phead" style="padding:0;border:0">
+          <h3>Agregar entrada nueva</h3>
+        </div>
+        <p class="muted" style="font-size:11.5px;margin:0;max-width:70ch">Esto agrega una fila a tu planilla <span class="mono">resiliencia_metadata</span>. Subí el archivo a la carpeta correspondiente en Drive primero, y acá cargás sus datos — luego sincronizá para verlo en el dashboard y el mapa.</p>
+        <div class="grow">
+          <div><label for="nTitulo">Título del dataset *</label>
+            <input class="input" id="nTitulo" placeholder="Ej. vias_internas"></div>
+          <div><label for="nTipologia">Eje (tipologia) *</label>
+            <select class="input" id="nTipologia">
+              <option value="Urbano">Urbano</option>
+              <option value="Social">Social</option>
+              <option value="Ambiental">Ambiental</option>
+            </select></div>
+          <div><label for="nSubproyecto">Zona (subproyecto) *</label>
+            <select class="input" id="nSubproyecto">
+              <option value="ASU">ASU</option>
+              <option value="PY">PY</option>
+              <option value="CHA">CHA</option>
+              <option value="Parque Caballero">Parque Caballero</option>
+              <option value="DEI">DEI</option>
+              <option value="Banco San Miguel">Banco San Miguel</option>
+            </select></div>
+          <div><label for="nUbicacion">Nombre de la carpeta/archivo en Drive *</label>
+            <input class="input" id="nUbicacion" placeholder="Nombre exacto tal cual aparece en Drive"></div>
+          <div><label for="nFormato">Formato</label>
+            <input class="input" id="nFormato" placeholder="shp, tif, csv…"></div>
+          <div><label for="nFuente">Quién sube el dato *</label>
+            <input class="input" id="nFuente" placeholder="Tu nombre o institución"></div>
+          <div class="full"><label for="nReferencia">Referencia / cita (opcional)</label>
+            <input class="input" id="nReferencia" placeholder="Ej. INFONA (2022). Censo forestal…"></div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="nSubmit">Agregar a la planilla</button>
+          <span class="muted" style="font-size:11px" id="nStatus"></span>
+        </div>
+      </div>
+
+
+        <div class="phead"><h3>Catálogo</h3><span class="muted" style="font-size:11px" id="catCount"></span></div>
+        <div style="overflow:auto">
+          <table class="tbl">
+            <thead><tr><th>Dataset</th><th>Eje</th><th>Formato</th><th>EPSG</th><th>Licencia</th><th>Carpeta</th><th></th></tr></thead>
+            <tbody id="catBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ MODAL DE DESCARGA ============ -->
+<div class="backdrop" id="dlBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlTitle">
+    <div class="mhead">
+      <div class="steps" id="dlSteps"></div>
+      <h2 id="dlTitle">Descargar capa</h2>
+      <p class="muted" style="margin:0;font-size:12.5px" id="dlSub"></p>
+    </div>
+    <div class="mbody" id="dlBody"></div>
+    <div class="mfoot" id="dlFoot"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== datos del catálogo ===================== */
+const EJES = {
+  urb:{name:"Datos urbanos",   color:"var(--eje-urb)", hex:"#1a2f6b", desc:"Traza, vialidad, topografía y catastro del área de proyecto"},
+  soc:{name:"Datos sociales",  color:"var(--eje-soc)", hex:"#c9860a", desc:"Población, vivienda, equipamientos y relocalización"},
+  amb:{name:"Datos ambientales",color:"var(--eje-amb)",hex:"#0f5c3f", desc:"Humedal, cuerpos de agua, arbolado y riesgo de inundación"}
+};
+const ZONAS = {
+  parque:{name:"Parque Caballero"},
+  dei:{name:"Distrito Eco Inclusivo (DEI)"},
+  cha:{name:"Centro Histórico (CHA)"},
+  banco:{name:"Reserva Banco San Miguel"},
+  asu:{name:"Asunción (ASU)"},
+  py:{name:"Paraguay (PY)"},
+  otras:{name:"Otras zonas"}
+};
+const ZONA_CENTERS = {
+  parque:[-25.2672,-57.6295], dei:[-25.2790,-57.6480], cha:[-25.2760,-57.6420],
+  banco:[-25.2620,-57.6640], asu:[-25.2820,-57.6420], py:[-23.4,-58.0], otras:[-25.2700,-57.6420]
+};
+const SHP = ["shp","shx","dbf","prj","cpg","qmd"];
+const LIC_CC = "CC BY 4.0";
+
+/* geometrías de referencia sobre la Bahía y la Franja Costera */
+let seed = 20260730;
+const rnd = () => (seed = (seed*1664525+1013904223)%4294967296)/4294967296;
+const scatter = (lat0,lng0,dLat,dLng,n) => Array.from({length:n},()=>[lat0+(rnd()-.5)*dLat, lng0+(rnd()-.5)*dLng]);
+const rect = (a,b,c,d) => [[a,b],[a,d],[c,d],[c,b]];
+const cells = (lat0,lng0,rows,cols,h,w) => {
+  const out=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const la=lat0-r*h*1.55, ln=lng0+c*w*1.5; out.push(rect(la,ln,la-h,ln+w));
+  } return out;
+};
+
+const CATALOG = [
+  /* --- urbanos --- */
+  {id:"u1",name:"POLIGONO_PROYECTO",eje:"urb",zona:"cha",folder:"09_PLANO_PROYECTO/POLIGONO_PROYECTO",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"2,1 MB",date:"12/06/2026",author:"Dir. de Proyectos",feats:1,on:true,
+   files:SHP, g:[[[-25.2905,-57.6570],[-25.2612,-57.6535],[-25.2578,-57.6175],[-25.2862,-57.6208]]]},
+  {id:"u2",name:"vias_internas",eje:"urb",zona:"parque",folder:"02 PARQUE/vias_internas",fmt:"Shapefile",geom:"line",epsg:"EPSG:32721",lic:LIC_CC,size:"418 KB",date:"03/07/2026",author:"Dir. de Proyectos",feats:37,on:false,
+   files:SHP, g:[[[-25.2700,-57.6330],[-25.2678,-57.6298],[-25.2652,-57.6285],[-25.2640,-57.6248]],
+                 [[-25.2692,-57.6262],[-25.2668,-57.6300],[-25.2648,-57.6335]],
+                 [[-25.2718,-57.6295],[-25.2686,-57.6280],[-25.2662,-57.6252]]]},
+  {id:"u3",name:"PLANO_PROYECTO_vialidad",eje:"urb",zona:"cha",folder:"09_PLANO_PROYECTO/PLANO_PROYECTO",fmt:"DWG",geom:"line",epsg:"EPSG:32721",lic:"Uso interno MOPC",size:"14,8 MB",date:"28/05/2026",author:"Consultora vial",feats:212,on:false,
+   files:["dwg","pdf"], g:[[[-25.2884,-57.6520],[-25.2812,-57.6480],[-25.2742,-57.6402],[-25.2688,-57.6320],[-25.2638,-57.6238]],
+                           [[-25.2860,-57.6448],[-25.2790,-57.6400],[-25.2726,-57.6330]]]},
+  {id:"u4",name:"Relevamiento_topografico_2024",eje:"urb",zona:"parque",folder:"02 PARQUE/Relevamiento topografico 2024",fmt:"Shapefile",geom:"point",epsg:"EPSG:32721",lic:LIC_CC,size:"4,2 MB",date:"28/07/2026",author:"M. Ayala",feats:1842,on:false,
+   files:SHP, g:scatter(-25.2672,-57.6295,.0072,.0092,140)},
+  {id:"u5",name:"vertices_parque",eje:"urb",zona:"parque",folder:"02 PARQUE/vertices_parque",fmt:"Shapefile",geom:"point",epsg:"EPSG:32721",lic:LIC_CC,size:"96 KB",date:"14/04/2026",author:"M. Ayala",feats:64,on:false,
+   files:SHP, g:scatter(-25.2668,-57.6292,.0040,.0056,34)},
+  {id:"u6",name:"tuberias_encontradas",eje:"urb",zona:"parque",folder:"02 PARQUE/tuberias_encontradas",fmt:"Shapefile",geom:"line",epsg:"EPSG:32721",lic:LIC_CC,size:"812 KB",date:"27/07/2026",author:"Obras",feats:53,on:false,
+   files:SHP, g:[[[-25.2712,-57.6320],[-25.2690,-57.6294],[-25.2664,-57.6276]],
+                 [[-25.2700,-57.6262],[-25.2676,-57.6288],[-25.2652,-57.6308]]]},
+  {id:"u7",name:"MAPAS_INSUMOS_URBANIDAD",eje:"urb",zona:"cha",folder:"11_MAPAS INSUMOS URBANIDAD",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"6,4 MB",date:"09/03/2026",author:"Urbanismo",feats:486,on:false,
+   files:SHP, g:cells(-25.2760,-57.6420,4,6,.0026,.0032)},
+  {id:"u8",name:"LAS_MERCEDES_lotes",eje:"urb",zona:"cha",folder:"08_LAS_MERCEDES",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:"Uso interno MOPC",size:"1,3 MB",date:"22/02/2026",author:"Catastro",feats:214,on:false,
+   files:SHP, g:cells(-25.2618,-57.6300,3,4,.0022,.0028)},
+  {id:"u9",name:"uca_fcyt_predio",eje:"urb",zona:"cha",folder:"10_uca_fcyt",fmt:"GeoJSON",geom:"polygon",epsg:"EPSG:4326",lic:LIC_CC,size:"38 KB",date:"05/05/2026",author:"UCA — FCyT",feats:3,on:false,
+   files:["geojson"], g:[rect(-25.2836,-57.6338,-25.2856,-57.6306)]},
+
+  /* --- sociales --- */
+  {id:"s1",name:"ricardo_brugada",eje:"soc",zona:"parque",folder:"02 PARQUE/ricardo_brugada",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"740 KB",date:"18/06/2026",author:"Social",feats:1,on:true,
+   files:SHP, g:[[[-25.2742,-57.6448],[-25.2716,-57.6372],[-25.2778,-57.6340],[-25.2806,-57.6420]]]},
+  {id:"s2",name:"DEI_radios_censales",eje:"soc",zona:"dei",folder:"03 DEI",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"3,6 MB",date:"11/01/2026",author:"INE / DEI",feats:312,on:false,
+   files:SHP, g:cells(-25.2790,-57.6480,4,7,.0030,.0038)},
+  {id:"s3",name:"equipamientos_sociales",eje:"soc",zona:"parque",folder:"02 PARQUE/para la web",fmt:"CSV",geom:"point",epsg:"EPSG:4326",lic:LIC_CC,size:"24 KB",date:"30/06/2026",author:"Social",feats:48,on:false,
+   files:["csv"], g:scatter(-25.2760,-57.6390,.0110,.0150,26)},
+  {id:"s4",name:"parque_caballero",eje:"soc",zona:"parque",folder:"02 PARQUE/parque_caballero",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"512 KB",date:"27/03/2026",author:"Dir. de Proyectos",feats:1,on:false,
+   files:SHP, g:[[[-25.2650,-57.6320],[-25.2632,-57.6262],[-25.2694,-57.6242],[-25.2712,-57.6300]]]},
+  {id:"s5",name:"piscina_historica",eje:"soc",zona:"parque",folder:"02 PARQUE/piscina_historica",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"62 KB",date:"27/03/2026",author:"Patrimonio",feats:1,on:false,
+   files:SHP, g:[rect(-25.2664,-57.6288,-25.2672,-57.6274)]},
+  {id:"s6",name:"hogares_relocalizacion",eje:"soc",zona:"otras",folder:"07 Chacarita inundable/hogares",fmt:"Shapefile",geom:"point",epsg:"EPSG:32721",lic:"Uso interno MOPC",size:"288 KB",date:"02/07/2026",author:"Social",feats:396,on:false,
+   files:SHP, g:scatter(-25.2768,-57.6398,.0062,.0086,72)},
+
+  /* --- ambientales --- */
+  {id:"a1",name:"banco_san_miguel_humedal",eje:"amb",zona:"banco",folder:"04 BANCO SAN MIGUEL",fmt:"GeoJSON",geom:"polygon",epsg:"EPSG:4326",lic:LIC_CC,size:"640 KB",date:"18/07/2026",author:"Ambiental",feats:7,on:true,
+   files:["geojson"], g:[[[-25.2680,-57.6760],[-25.2540,-57.6720],[-25.2520,-57.6560],[-25.2620,-57.6530],[-25.2700,-57.6640]]]},
+  {id:"a2",name:"chacarita_inundable",eje:"amb",zona:"otras",folder:"07 Chacarita inundable",fmt:"GeoTIFF",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"36,4 MB",date:"21/07/2026",author:"Hidrología",feats:1,on:true,
+   files:["tif","tfw","aux.xml"], g:[[[-25.2726,-57.6470],[-25.2694,-57.6366],[-25.2790,-57.6330],[-25.2824,-57.6448]]]},
+  {id:"a3",name:"laguna_segun_cad",eje:"amb",zona:"parque",folder:"02 PARQUE/laguna_segun_cad",fmt:"Shapefile",geom:"polygon",epsg:"EPSG:32721",lic:LIC_CC,size:"84 KB",date:"27/03/2026",author:"Dir. de Proyectos",feats:2,on:false,
+   files:SHP, g:[[[-25.2716,-57.6452],[-25.2700,-57.6428],[-25.2724,-57.6408],[-25.2740,-57.6438]]]},
+  {id:"a4",name:"borde_protector_manantial",eje:"amb",zona:"parque",folder:"02 PARQUE/borde_protector_manantial",fmt:"Shapefile",geom:"line",epsg:"EPSG:32721",lic:LIC_CC,size:"52 KB",date:"27/03/2026",author:"Ambiental",feats:4,on:false,
+   files:SHP, g:[[[-25.2694,-57.6360],[-25.2708,-57.6332],[-25.2688,-57.6302],[-25.2700,-57.6276]]]},
+  {id:"a5",name:"asuverde_arbolado",eje:"amb",zona:"banco",folder:"12_ASUVERDE",fmt:"Shapefile",geom:"point",epsg:"EPSG:32721",lic:LIC_CC,size:"1,9 MB",date:"24/07/2026",author:"ASUVERDE",feats:2740,on:false,
+   files:SHP, g:scatter(-25.2712,-57.6360,.0180,.0260,170)},
+  {id:"a6",name:"linea_ribera_bahia",eje:"amb",zona:"cha",folder:"00 ASUNCION/ribera",fmt:"Shapefile",geom:"line",epsg:"EPSG:32721",lic:LIC_CC,size:"210 KB",date:"14/02/2026",author:"Hidrología",feats:9,on:false,
+   files:SHP, g:[[[-25.2900,-57.6560],[-25.2800,-57.6600],[-25.2700,-57.6660],[-25.2600,-57.6700],[-25.2520,-57.6640],[-25.2540,-57.6480],[-25.2600,-57.6320],[-25.2610,-57.6180]]]}
+];
+
+const FMT_STATS = {"Shapefile":92,"GeoTIFF":21,"DWG / CAD":15,"CSV":10,"GeoJSON":7,"KML / KMZ":3};
+const FMT_COLORS = ["#1a2f6b","#0f5c3f","#2e7d5b","#5566a3","#4c8f6f","#8fa0c9"];
+const TOTALS = {carpetas:13, tamano:"2,4 GB"};
+
+let RECENT = [
+  {name:"Relevamiento_topografico_2024",folder:"02 PARQUE/Relevamiento topografico 2024",fmt:"Shapefile",eje:"urb",size:"4,2 MB",date:"28/07/2026",by:"M. Ayala",id:"u4"},
+  {name:"tuberias_encontradas",folder:"02 PARQUE/tuberias_encontradas",fmt:"Shapefile",eje:"urb",size:"812 KB",date:"27/07/2026",by:"Obras",id:"u6"},
+  {name:"asuverde_arbolado",folder:"12_ASUVERDE",fmt:"Shapefile",eje:"amb",size:"1,9 MB",date:"24/07/2026",by:"ASUVERDE",id:"a5"},
+  {name:"chacarita_inundable",folder:"07 Chacarita inundable",fmt:"GeoTIFF",eje:"amb",size:"36,4 MB",date:"21/07/2026",by:"Hidrología",id:"a2"},
+  {name:"hogares_relocalizacion",folder:"07 Chacarita inundable/hogares",fmt:"Shapefile",eje:"soc",size:"288 KB",date:"02/07/2026",by:"Social",id:"s6"}
+];
+
+/* ===================== utilidades ===================== */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const byId = id => CATALOG.find(l=>l.id===id);
+const fmtIcon = f => f==="GeoTIFF"?"TIF":f==="Shapefile"?"SHP":f==="GeoJSON"?"JSON":f==="DWG"?"DWG":f.slice(0,4).toUpperCase();
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.dataset.show="true";
+  clearTimeout(toastT); toastT=setTimeout(()=>t.dataset.show="false",2600); }
+
+/* ===================== navegación ===================== */
+function go(view){
+  $$(".tab").forEach(t=>t.setAttribute("aria-selected", String(t.dataset.view===view)));
+  $$(".view").forEach(v=>v.toggleAttribute("data-active", v.dataset.view===view));
+  if(view==="mapa" && map) requestAnimationFrame(()=>requestAnimationFrame(()=>{ map.invalidateSize(); if(!mapFitted){ fitActive(); mapFitted=true; } }));
+}
+$$(".tab").forEach(t=>t.addEventListener("click",()=>go(t.dataset.view)));
+$$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
+
+/* ===================== dashboard ===================== */
+function renderKpis(){
+  const total = Object.values(FMT_STATS).reduce((a,b)=>a+b,0);
+  const items = [
+    {n:total, l:"capas catalogadas", d:"+3 esta semana"},
+    {n:TOTALS.carpetas, l:"carpetas en la unidad"},
+    {n:Object.keys(FMT_STATS).length, l:"formatos distintos"},
+    {n:TOTALS.tamano, l:"peso total del repositorio"}
+  ];
+  $("#kpis").innerHTML = items.map(k=>`<div class="panel kpi"><div class="mark"></div>
+    <div class="n">${esc(k.n)}</div><div class="l">${esc(k.l)}</div>
+    ${k.d?`<div class="d">${esc(k.d)}</div>`:""}</div>`).join("");
+}
+
+function renderRecent(){
+  $("#recentRows").innerHTML = RECENT.slice(0,5).map(r=>`
+    <div class="row">
+      <div class="fmt">${esc(fmtIcon(r.fmt))}</div>
+      <div><div class="fname">${esc(r.name)}</div><div class="fpath mono">${esc(r.folder)}</div></div>
+      <span class="tagx" style="color:${EJES[r.eje].color};border-color:color-mix(in srgb,${EJES[r.eje].hex} 40%,transparent)">
+        <span class="dot" style="background:${EJES[r.eje].color}"></span>${esc(EJES[r.eje].name.replace("Datos ",""))}</span>
+      <div style="text-align:right;line-height:1.35">
+        <div class="mono" style="font-size:11.5px">${esc(r.date)}</div>
+        <div class="muted" style="font-size:10.5px">${esc(r.size)} · ${esc(r.by)}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" data-dl="${esc(r.id)}">ZIP</button>
+    </div>`).join("");
+  $$("#recentRows [data-dl]").forEach(b=>b.addEventListener("click",()=>openDownload([b.dataset.dl])));
+}
+
+function renderDonut(){
+  const entries = Object.entries(FMT_STATS);
+  const total = entries.reduce((a,[,v])=>a+v,0);
+  const cx=98, cy=98, r=72, w=22;
+  let ang = -Math.PI/2, paths="";
+  entries.forEach(([k,v],i)=>{
+    const sweep = v/total*Math.PI*2, end = ang+sweep;
+    const p = (rad,a)=>[cx+rad*Math.cos(a), cy+rad*Math.sin(a)];
+    const [x1,y1]=p(r,ang),[x2,y2]=p(r,end),[x3,y3]=p(r-w,end),[x4,y4]=p(r-w,ang);
+    const large = sweep>Math.PI?1:0;
+    paths += `<path d="M${x1} ${y1}A${r} ${r} 0 ${large} 1 ${x2} ${y2}L${x3} ${y3}A${r-w} ${r-w} 0 ${large} 0 ${x4} ${y4}Z"
+      fill="${FMT_COLORS[i%FMT_COLORS.length]}" data-slice="${i}" style="transition:opacity 150ms var(--ease-out)"></path>`;
+    ang = end;
+  });
+  $("#donut").innerHTML = paths + `
+    <text id="donutCenter" x="98" y="92" fill="#1d1d1f" font-size="28" font-family="-apple-system,SF Pro Display,Inter" font-weight="600">${total}</text>
+    <text x="98" y="110" fill="#86868b" font-size="10" text-anchor="middle" font-family="-apple-system,SF Pro Text,Inter" letter-spacing="1">CAPAS</text>`;
+  $("#pieLegend").innerHTML = entries.map(([k,v],i)=>`
+    <div class="li" data-slice="${i}">
+      <span class="dot" style="background:${FMT_COLORS[i%FMT_COLORS.length]}"></span>
+      <span class="lname">${esc(k)}</span>
+      <span class="pct">${(v/total*100).toFixed(1)}%</span>
+    </div>`).join("");
+  const hi = (i,on)=>$$("#donut path").forEach(p=>p.style.opacity = (!on||p.dataset.slice===i)?1:.28);
+  $$("#pieLegend .li").forEach(li=>{
+    li.addEventListener("mouseenter",()=>hi(li.dataset.slice,true));
+    li.addEventListener("mouseleave",()=>hi(null,false));
+  });
+}
+
+function renderEjeCards(){
+  $("#ejeCards").innerHTML = Object.entries(EJES).map(([k,e])=>{
+    const ls = CATALOG.filter(l=>l.eje===k);
+    return `<div class="panel ejecard">
+      <div class="bar" style="background:${e.color}"></div>
+      <div style="display:flex;align-items:flex-start;gap:var(--space-4)">
+        <div style="flex:1"><h4>${esc(e.name)}</h4>
+        <p class="muted" style="font-size:11.5px;margin:4px 0 0;max-width:38ch">${esc(e.desc)}</p></div>
+        <div style="text-align:right"><div class="cnt" style="color:${e.color}">${ls.length}</div>
+        <div class="muted" style="font-size:10px">capas</div></div>
+      </div>
+      <div class="chips">${ls.slice(0,4).map(l=>`<span class="chip">${esc(l.name)}</span>`).join("")}
+        ${ls.length>4?`<span class="chip">+${ls.length-4}</span>`:""}</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--space-4);padding-left:0" data-eje-go="${k}">Ver en el mapa →</button>
+    </div>`;
+  }).join("");
+  $$("[data-eje-go]").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.dataset.ejeGo;
+    CATALOG.forEach(l=>setLayer(l.id, l.eje===k));
+    go("mapa"); refreshTree(); requestAnimationFrame(()=>requestAnimationFrame(fitActive));
+  }));
+}
+
+/* ===================== mapa ===================== */
+let map, panes={}, drawn={}, mapFitted=false;
+function initMap(){
+  map = L.map("map",{center:[-25.2700,-57.6420],zoom:14,zoomControl:true,attributionControl:true});
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{
+    attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC (vista previa)',
+    subdomains:"abcd", maxZoom:20
+  }).addTo(map);
+  CATALOG.forEach(l=>{ drawn[l.id] = buildLayer(l); if(l.on) drawn[l.id].addTo(map); });
+  if($(".view[data-view='mapa']").hasAttribute("data-active")){ map.invalidateSize(); fitActive(); mapFitted=true; }
+}
+function buildLayer(l){
+  const c = EJES[l.eje].hex, g = L.layerGroup();
+  const pop = `<h4>${esc(l.name)}</h4>
+    <div style="color:#9397ab;font-size:11px;line-height:1.6">
+    ${esc(EJES[l.eje].name)} · ${esc(l.fmt)}<br>${esc(l.feats)} ${l.geom==="point"?"puntos":l.geom==="line"?"líneas":"polígonos"} · ${esc(l.epsg)}<br>
+    <span class="mono">${esc(l.folder)}/</span></div>
+    <div class="pop-dl"><button class="btn btn-primary btn-sm" onclick="openDownload(['${l.id}'])">Descargar carpeta ZIP</button></div>`;
+  if(l.geom==="point"){
+    l.g.forEach(p=>g.addLayer(L.circleMarker(p,{radius:3.4,color:c,weight:1,fillColor:c,fillOpacity:.7}).bindPopup(pop)));
+  } else if(l.geom==="line"){
+    l.g.forEach(line=>g.addLayer(L.polyline(line,{color:c,weight:2.2,opacity:.9}).bindPopup(pop)));
+  } else {
+    l.g.forEach(poly=>g.addLayer(L.polygon(poly,{color:c,weight:1.6,opacity:.95,fillColor:c,fillOpacity:.16}).bindPopup(pop)));
+  }
+  return g;
+}
+function setLayer(id,on){
+  const l = byId(id); if(!l) return; l.on = on;
+  if(!map) return;
+  if(on) drawn[id].addTo(map); else map.removeLayer(drawn[id]);
+}
+function fitActive(){
+  const pts=[]; CATALOG.filter(l=>l.on).forEach(l=>l.g.forEach(x=>Array.isArray(x[0])?pts.push(...x):pts.push(x)));
+  if(pts.length && map) map.fitBounds(L.latLngBounds(pts).pad(.12));
+}
+
+let groupMode = "eje";
+$$("#groupSeg button").forEach(b=>b.addEventListener("click",()=>{
+  groupMode = b.dataset.group;
+  $$("#groupSeg button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  renderTree();
+}));
+function renderTree(){
+  const q = ($("#layerSearch").value||"").toLowerCase();
+  const groups = groupMode==="zona" ? ZONAS : EJES;
+  $("#layerTree").innerHTML = Object.entries(groups).map(([k,g])=>{
+    const ls = CATALOG.filter(l=>(groupMode==="zona"?l.zona:l.eje)===k && (!q || l.name.toLowerCase().includes(q) || l.folder.toLowerCase().includes(q)));
+    if(!ls.length) return "";
+    const nOn = ls.filter(l=>l.on).length;
+    const dotColor = groupMode==="zona" ? "var(--color-neutral-500)" : g.color;
+    return `<div class="grp" data-open="true" data-key="${k}">
+      <div class="grp-head">
+        <svg class="caret" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 4 5 6.5 7.5 4"/></svg>
+        <span class="dot" style="background:${dotColor};width:8px;height:8px"></span>
+        <span class="grp-name">${esc(g.name)}</span>
+        <span class="grp-cnt">${nOn}/${ls.length}</span>
+        <input class="tgl" type="checkbox" data-group-all="${k}" ${nOn===ls.length?"checked":""} title="Prender o apagar todo el grupo">
+      </div>
+      <div class="grp-body">${ls.map(l=>`
+        <div class="lyr-wrap" data-expanded="false">
+          <div class="lyr" data-on="${l.on}">
+            <input class="tgl" type="checkbox" data-lyr="${l.id}" ${l.on?"checked":""}>
+            <span class="sw" style="background:${EJES[l.eje].color}"></span>
+            <span class="nm" data-zoom="${l.id}" title="${esc(l.folder)}">${esc(l.name)}</span>
+            <span class="acts">
+              <button class="iconbtn" data-info="${l.id}" title="Metadatos">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="6" cy="6" r="4.6"/><path d="M6 5.2v3M6 3.7v.2"/></svg></button>
+              <button class="iconbtn" data-dl2="${l.id}" title="Descargar carpeta ZIP">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 1.6v6m0 0L3.8 5.4M6 7.6l2.2-2.2M2 9.4h8"/></svg></button>
+            </span>
+          </div>
+          <div class="meta">
+            <dl>
+              <dt>Eje</dt><dd>${esc(EJES[l.eje].name)}</dd>
+              <dt>Zona</dt><dd>${esc(ZONAS[l.zona].name)}</dd>
+              <dt>Formato</dt><dd>${esc(l.fmt)} · ${esc(l.feats)} registros</dd>
+              <dt>EPSG</dt><dd class="mono">${esc(l.epsg)}</dd>
+              <dt>Licencia</dt><dd>${esc(l.lic)}</dd>
+              <dt>Carpeta</dt><dd class="mono" style="word-break:break-all">${esc(l.folder)}/</dd>
+              <dt>Carga</dt><dd>${esc(l.date)} · ${esc(l.author)} · ${esc(l.size)}</dd>
+            </dl>
+            <div>Archivos en la carpeta:</div>
+            <div class="filelist">${l.files.map(x=>`<span>${esc(l.name)}.${esc(x)}</span>`).join("")}</div>
+          </div>
+        </div>`).join("")}</div>
+    </div>`;
+  }).join("") || `<p class="muted" style="padding:var(--space-8) var(--space-6);font-size:12px">Ninguna capa coincide con la búsqueda.</p>`;
+
+  $$(".grp-head").forEach(h=>h.addEventListener("click",ev=>{
+    if(ev.target.closest("input")) return;
+    const g=h.closest(".grp"); g.dataset.open = g.dataset.open==="true"?"false":"true";
+  }));
+  $$("[data-group-all]").forEach(c=>c.addEventListener("change",()=>{
+    const key = c.dataset.groupAll;
+    CATALOG.filter(l=>(groupMode==="zona"?l.zona:l.eje)===key).forEach(l=>setLayer(l.id,c.checked));
+    refreshTree();
+  }));
+  $$("[data-lyr]").forEach(c=>c.addEventListener("change",()=>{ setLayer(c.dataset.lyr,c.checked); refreshTree(); }));
+  $$("[data-info]").forEach(b=>b.addEventListener("click",()=>{
+    const w=b.closest(".lyr-wrap"); w.dataset.expanded = w.dataset.expanded==="true"?"false":"true";
+  }));
+  $$("[data-dl2]").forEach(b=>b.addEventListener("click",()=>openDownload([b.dataset.dl2])));
+  $$("[data-zoom]").forEach(n=>n.addEventListener("click",()=>{
+    const l=byId(n.dataset.zoom); if(!l.on){ setLayer(l.id,true); refreshTree(); }
+    const pts=[]; l.g.forEach(x=>Array.isArray(x[0])?pts.push(...x):pts.push(x));
+    map.fitBounds(L.latLngBounds(pts).pad(.25));
+  }));
+  const n = CATALOG.filter(l=>l.on).length;
+  $("#activeCount").textContent = n===1?"1 capa activa":`${n} capas activas`;
+  $("#dlActive").disabled = n===0;
+}
+function refreshTree(){ renderTree(); }
+$("#layerSearch")?.addEventListener("input",renderTree);
+$("#dlActive").addEventListener("click",()=>openDownload(CATALOG.filter(l=>l.on).map(l=>l.id)));
+
+function renderLegend(){
+  $("#mapLegend").innerHTML = `<div class="kicker">Ejes</div>` + Object.entries(EJES).map(([k,e])=>
+    `<div class="li"><span class="dot" style="background:${e.color}"></span>${esc(e.name)}</div>`).join("");
+}
+
+/* ===================== ZIP real (store, sin compresión) ===================== */
+const COLABORADORES = new Set([
+  "palo.chamorro@gmail.com","juaescurra.uepresiliencia@gmail.com","ronaldomeza.mopc@gmail.com",
+  "peggyquinonez.resiliencia9451py@gmail.com","irisibarra.resiliencia@gmail.com","vmartinez.mopc@gmail.com",
+  "arq.urb.ximena.amarilla@gmail.com","silvimachuca914@gmail.com","hector.adbl@gmail.com",
+  "mariapazgillmopc@gmail.com","jcorbeta.mopc@gmail.com","fernando.uepresiliencia@gmail.com",
+  "crodas.mopc@gmail.com","ambientalmopc@gmail.com","sebarq.mopc@gmail.com","gianninoto.mopc@gmail.com",
+  "adriavilapy@gmail.com","mercadolulymabel@gmail.com","fernandoduarte.dipe@gmail.com",
+  "elenasofiabarni@gmail.com","maasrenato@gmail.com","ingmariafarias@gmail.com","ibarra.irismaria@gmail.com",
+  "cinbenitez.rurbana.mopc@gmail.com","mibarrola.mopc@gmail.com","cecicalcena@gmail.com"
+]);
+const CRC = (()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipStore(files){
+  const enc=new TextEncoder(), chunks=[], central=[]; let offset=0;
+  const num=(n,b)=>{const a=new Uint8Array(b);for(let i=0;i<b;i++)a[i]=(n>>>(8*i))&255;return a};
+  const push=(arr,a)=>{arr.push(a);return a.length};
+  files.forEach(f=>{
+    const name=enc.encode(f.name), data=typeof f.data==="string"?enc.encode(f.data):f.data, crc=crc32(data);
+    const local=[num(0x04034b50,4),num(20,2),num(0,2),num(0,2),num(0,2),num(0,2),num(crc,4),
+      num(data.length,4),num(data.length,4),num(name.length,2),num(0,2),name,data];
+    let size=0; local.forEach(a=>size+=push(chunks,a));
+    central.push({name,crc,size:data.length,offset}); offset+=size;
+  });
+  const cd=[]; let cdSize=0;
+  central.forEach(c=>{
+    [num(0x02014b50,4),num(20,2),num(20,2),num(0,2),num(0,2),num(0,2),num(0,2),num(c.crc,4),
+     num(c.size,4),num(c.size,4),num(c.name.length,2),num(0,2),num(0,2),num(0,2),num(0,2),num(0,4),
+     num(c.offset,4),c.name].forEach(a=>cdSize+=push(cd,a));
+  });
+  const end=[num(0x06054b50,4),num(0,2),num(0,2),num(central.length,2),num(central.length,2),
+    num(cdSize,4),num(offset,4),num(0,2)];
+  return new Blob([...chunks,...cd,...end],{type:"application/zip"});
+}
+function geojsonOf(l){
+  const ring = poly => [poly.map(([la,ln])=>[+ln.toFixed(6),+la.toFixed(6)]).concat([[+poly[0][1].toFixed(6),+poly[0][0].toFixed(6)]])];
+  let feats;
+  if(l.geom==="point") feats=l.g.map((p,i)=>({type:"Feature",properties:{id:i+1,capa:l.name},geometry:{type:"Point",coordinates:[+p[1].toFixed(6),+p[0].toFixed(6)]}}));
+  else if(l.geom==="line") feats=l.g.map((ln,i)=>({type:"Feature",properties:{id:i+1,capa:l.name},geometry:{type:"LineString",coordinates:ln.map(([la,lo])=>[+lo.toFixed(6),+la.toFixed(6)])}}));
+  else feats=l.g.map((p,i)=>({type:"Feature",properties:{id:i+1,capa:l.name},geometry:{type:"Polygon",coordinates:ring(p)}}));
+  return JSON.stringify({type:"FeatureCollection",name:l.name,crs:{type:"name",properties:{name:"urn:ogc:def:crs:OGC:1.3:CRS84"}},features:feats},null,1);
+}
+const citeOf = l => l.referencia || `MOPC (2026). ${l.name} [conjunto de datos geoespaciales]. Repositorio Geoespacial del Proyecto Resiliencia Urbana de la Franja Costera de Asunción. Ministerio de Obras Públicas y Comunicaciones, Paraguay.`;
+
+/* ===================== flujo de descarga ===================== */
+let dlIds=[], dlStep=1, dlForm={email:"",inst:"",uso:""};
+function openDownload(ids){
+  dlIds = ids.filter(Boolean); if(!dlIds.length) return;
+  dlStep = 1; $("#dlBackdrop").dataset.open="true"; renderDl();
+}
+function closeDl(){ $("#dlBackdrop").dataset.open="false"; }
+$("#dlBackdrop").addEventListener("click",e=>{ if(e.target.id==="dlBackdrop") closeDl(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeDl(); });
+
+function renderDl(){
+  const ls = dlIds.map(byId), one = ls.length===1;
+  const title = one?ls[0].name:`${ls.length} capas seleccionadas`;
+  $("#dlSteps").innerHTML = [1,2,3].map(i=>`${i>1?'<span>·</span>':''}<span ${i===dlStep?'':'style="opacity:.5"'}>${i===dlStep?`<b>${i}. ${["Datos de uso","Licencia","Descarga"][i-1]}</b>`:`${i}. ${["Datos de uso","Licencia","Descarga"][i-1]}`}</span>`).join(" ");
+  $("#dlTitle").textContent = dlStep===3?"Preparando el ZIP":title;
+  $("#dlSub").innerHTML = dlStep===3?"":`${ls.length} carpeta${one?"":"s"} · ${esc(ls.map(l=>l.fmt).filter((v,i,a)=>a.indexOf(v)===i).join(", "))} · el ZIP conserva la estructura de la unidad`;
+
+  if(dlStep===1){
+    $("#dlBody").innerHTML = `
+      <div class="lic">Los datos son de uso interno del equipo del proyecto. Solo colaboradores habilitados pueden descargar; registramos quién y para qué, para poder avisarte si la capa se actualiza o se corrige.</div>
+      <div><label class="muted" style="font-size:11px;display:block;margin-bottom:4px" for="fEmail">Correo habilitado *</label>
+        <input class="input" id="fEmail" type="email" placeholder="nombre@gmail.com" value="${esc(dlForm.email)}"></div>
+      <div><label class="muted" style="font-size:11px;display:block;margin-bottom:4px" for="fInst">Institución o dirección *</label>
+        <input class="input" id="fInst" placeholder="Ej. Dirección de Proyectos Estratégicos" value="${esc(dlForm.inst)}"></div>
+      <div><label class="muted" style="font-size:11px;display:block;margin-bottom:4px" for="fUso">Uso previsto *</label>
+        <select class="input" id="fUso">
+          <option value="">Elegí una opción…</option>
+          ${["Análisis técnico interno","Diseño de proyecto / obra","Investigación académica","Consulta pública o comunicación","Otro"]
+            .map(o=>`<option ${dlForm.uso===o?"selected":""}>${o}</option>`).join("")}
+        </select></div>
+      <div class="err" id="dlErr"></div>`;
+    $("#dlFoot").innerHTML = `<button class="btn btn-ghost" id="dlCancel">Cancelar</button>
+      <button class="btn btn-primary" id="dlNext">Continuar</button>`;
+    $("#dlNext").onclick = ()=>{
+      dlForm = {email:$("#fEmail").value.trim(), inst:$("#fInst").value.trim(), uso:$("#fUso").value};
+      if(!COLABORADORES.has(dlForm.email.toLowerCase())) return $("#dlErr").textContent="Ese correo no está habilitado para descargar. Pedile al equipo SIG que te agregue a la lista de colaboradores.";
+      if(!dlForm.inst) return $("#dlErr").textContent="Indicá tu institución o dirección.";
+      if(!dlForm.uso) return $("#dlErr").textContent="Elegí el uso previsto.";
+      dlStep=2; renderDl();
+    };
+    $("#dlCancel").onclick = closeDl;
+  }
+
+  if(dlStep===2){
+    const lics = ls.map(l=>l.lic).filter((v,i,a)=>a.indexOf(v)===i);
+    $("#dlBody").innerHTML = `
+      <div>
+        <div class="kicker" style="margin-bottom:6px">Licencia</div>
+        <div class="lic"><strong style="color:var(--color-text);font-weight:500">${esc(lics.join(" + "))}</strong><br>
+        Podés copiar, redistribuir y adaptar estos datos, incluso con fines comerciales, siempre que atribuyas la fuente.
+        ${lics.includes("Uso interno MOPC")?"<br><span style='color:var(--color-error)'>Atención: hay capas de uso interno — no publicar sin autorización de la Dirección.</span>":""}
+        <br>Las geometrías provienen de relevamientos del proyecto; verificá el EPSG antes de superponerlas con otras fuentes.</div>
+      </div>
+      <div>
+        <div class="kicker" style="margin-bottom:6px">Cita sugerida</div>
+        <div class="cite">${esc(citeOf(ls[0]))}${ls.length>1?` (y ${ls.length-1} capa${ls.length>2?"s":""} más del mismo repositorio)`:""}</div>
+      </div>
+      <div>
+        <div class="kicker" style="margin-bottom:6px">Contenido del ZIP</div>
+        <div class="zipfiles">${ls.map(l=>`<div><span class="dot" style="background:${EJES[l.eje].color}"></span>
+          <span class="mono">${esc(l.folder)}/</span><span class="muted">${l.files.length} archivos · ${esc(l.size)}</span></div>`).join("")}
+          <div><span class="dot" style="background:var(--color-neutral-600)"></span><span class="mono">LEEME.txt · LICENCIA.txt · metadatos.csv</span></div>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="dlAgree"><span>Acepto los términos de la licencia y me comprometo a citar la fuente.</span></label>
+      <div class="err" id="dlErr2"></div>`;
+    $("#dlFoot").innerHTML = `<button class="btn btn-ghost" id="dlBack">Atrás</button>
+      <button class="btn btn-primary" id="dlGo">Descargar ZIP</button>`;
+    $("#dlBack").onclick = ()=>{ dlStep=1; renderDl(); };
+    $("#dlGo").onclick = ()=>{
+      if(!$("#dlAgree").checked) return $("#dlErr2").textContent="Necesitás aceptar la licencia para continuar.";
+      dlStep=3; renderDl();
+    };
+  }
+
+  if(dlStep===3){
+    const steps = ["Reuniendo carpetas de la unidad…","Verificando los 6 archivos de cada shapefile…","Escribiendo metadatos y licencia…","Comprimiendo…"];
+    $("#dlBody").innerHTML = `<div class="zipfiles" id="dlProg">${steps.map((s,i)=>
+      `<div data-i="${i}" style="opacity:.35"><span class="spin" style="visibility:hidden"></span>${esc(s)}</div>`).join("")}</div>`;
+    $("#dlFoot").innerHTML = "";
+    const rows = $$("#dlProg div");
+    let i=0;
+    const tick = ()=>{
+      if(i>0){ rows[i-1].style.opacity=1; rows[i-1].querySelector(".spin").outerHTML =
+        `<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="var(--eje-amb)" stroke-width="1.6"><path d="M2 6.4 4.6 9 10 3.4"/></svg>`; }
+      if(i<rows.length){ rows[i].style.opacity=1; rows[i].querySelector(".spin").style.visibility="visible"; i++; setTimeout(tick,520); }
+      else finishZip();
+    };
+    tick();
+  }
+}
+
+function finishZip(){
+  const ls = dlIds.map(byId);
+  const stamp = new Date().toISOString().slice(0,10);
+  const files = [];
+  const rootName = ls.length===1 ? ls[0].name : `Franja_Costera_seleccion_${stamp}`;
+  ls.forEach(l=>{
+    const base = `${rootName}/${l.folder.split("/").pop()}`;
+    files.push({name:`${base}/${l.name}.geojson`, data:geojsonOf(l)});
+    files.push({name:`${base}/metadatos.txt`, data:
+`Dataset: ${l.name}
+Eje: ${EJES[l.eje].name}
+Formato original: ${l.fmt}
+Geometría: ${l.geom} — ${l.feats} registros
+Sistema de coordenadas: ${l.epsg}
+Licencia: ${l.lic}
+Carpeta de origen: ${l.folder}/
+Archivos del conjunto: ${l.files.map(x=>l.name+"."+x).join(", ")}
+Fecha de carga: ${l.date}   Responsable: ${l.author}   Peso: ${l.size}
+
+Cita sugerida:
+${citeOf(l)}
+`});
+  });
+  files.push({name:`${rootName}/LICENCIA.txt`, data:
+`Licencias presentes en este paquete: ${ls.map(l=>l.lic).filter((v,i,a)=>a.indexOf(v)===i).join(" | ")}
+
+CC BY 4.0 — se permite copiar, redistribuir y adaptar, incluso comercialmente,
+citando al Ministerio de Obras Públicas y Comunicaciones (MOPC) del Paraguay.
+Las capas marcadas "Uso interno MOPC" no pueden republicarse sin autorización.
+`});
+  files.push({name:`${rootName}/metadatos.csv`, data:
+"dataset,eje,formato,geometria,registros,epsg,licencia,carpeta,fecha_carga,responsable,peso\n"+
+ls.map(l=>[l.name,EJES[l.eje].name,l.fmt,l.geom,l.feats,l.epsg,l.lic,l.folder,l.date,l.author,l.size]
+  .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n")+"\n"});
+  files.push({name:`${rootName}/LEEME.txt`, data:
+`Repositorio Geoespacial — Proyecto Resiliencia Urbana de la Franja Costera de Asunción
+Ministerio de Obras Públicas y Comunicaciones (MOPC) · Paraguay
+
+Paquete generado: ${stamp}
+Solicitado por: ${dlForm.email} — ${dlForm.inst}
+Uso declarado: ${dlForm.uso}
+
+Contenido (${ls.length} ${ls.length===1?"capa":"capas"}):
+${ls.map(l=>` - ${l.folder}/  →  ${l.name} (${l.fmt}, ${l.feats} registros, ${l.epsg})`).join("\n")}
+
+Cada carpeta viene completa: un shapefile no se abre sin sus archivos acompañantes
+(.shp .shx .dbf .prj .cpg .qmd). No separes ni renombres archivos dentro de una carpeta.
+Además de los archivos originales, se incluye una versión .geojson en CRS84 para
+previsualización rápida y metadatos.txt con la ficha de cada capa.
+
+Consultas: sig@mopc.gov.py
+`});
+
+  const blob = zipStore(files);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${rootName}.zip`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+
+  const kb = (blob.size/1024).toFixed(0);
+  $("#dlTitle").textContent = "ZIP descargado";
+  $("#dlSub").textContent = `${rootName}.zip · ${kb} KB · ${files.length} archivos`;
+  $("#dlBody").innerHTML = `
+    <div class="lic" style="border-color:var(--color-accent-800)">
+      <div style="display:flex;gap:8px;align-items:center;color:var(--eje-amb);margin-bottom:6px">
+        <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 6.4 4.6 9 10 3.4"/></svg>
+        <span style="font-weight:500">Descarga completa</span></div>
+      Guardamos el registro de la descarga a nombre de <span class="mono">${esc(dlForm.email)}</span>.
+      Si alguna de estas capas se corrige, te avisamos por correo.</div>
+    <div class="zipfiles">${files.slice(0,8).map(f=>`<div><span class="dot" style="background:var(--color-neutral-600)"></span><span class="mono">${esc(f.name)}</span></div>`).join("")}
+      ${files.length>8?`<div class="muted" style="padding-left:16px">+${files.length-8} archivos más</div>`:""}</div>`;
+  $("#dlFoot").innerHTML = `<button class="btn btn-primary" id="dlDone">Listo</button>`;
+  $("#dlDone").onclick = ()=>{ closeDl(); toast("Descarga registrada en el historial del repositorio."); };
+}
+window.openDownload = openDownload;
+
+/* ===================== conexión Google Drive / Sheets ===================== */
+/* Configuración fija del repositorio — editar acá si cambiás de planilla, carpeta o proyecto de Google Cloud */
+const DRIVE_CONFIG = {
+  clientId: "",   // Client ID de Google Cloud (termina en .apps.googleusercontent.com)
+  sheetId: "1GJ_KuQXlODZZJNYonmx7xfSMkaaHhbGunzWHb73Zm9k",   // planilla resiliencia_metadata
+  range: "Table1!A:I",
+  rootFolder: "1wZRVnMicmCuvqWUDd5tcmABx5HfyV1Ne"            // carpeta raíz de Drive
+};
+const GSCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly";
+const gState = { token:null, tokenClient:null, connected:false };
+const gCfg = () => DRIVE_CONFIG;
+function gSetPill(state, text){ const p=$("#gPill"); p.dataset.state=state; p.textContent=text; }
+function gStatus(msg){ $("#gStatus").textContent = msg||""; }
+
+$("#gConnect").addEventListener("click",()=>{
+  const cfg = gCfg();
+  if(!cfg.clientId){ gStatus("Falta configurar el Client ID en DRIVE_CONFIG dentro del archivo."); return; }
+  if(!window.google?.accounts?.oauth2){ gStatus("La librería de Google todavía está cargando, esperá un segundo y reintentá."); return; }
+  if(!gState.tokenClient){
+    gState.tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: cfg.clientId, scope: GSCOPES,
+      callback: (resp)=>{
+        if(resp.error){ gSetPill("err","Error de acceso"); gStatus(resp.error); return; }
+        gState.token = resp.access_token; gState.connected = true;
+        gSetPill("on","Conectado"); gStatus("Cuenta conectada. Ahora sincronizá la planilla.");
+        $("#gSync").disabled = false;
+      }
+    });
+  }
+  gState.tokenClient.requestAccessToken({prompt:""});
+});
+
+function classifyTipologia(raw){
+  const t = (raw||"").toLowerCase();
+  if(t.includes("ambient")) return "amb";
+  if(t.includes("social")) return "soc";
+  return "urb";
+}
+function classifySubproyecto(raw){
+  const t = (raw||"").toLowerCase();
+  if(t.includes("parque")||t.includes("caballero")) return "parque";
+  if(t.includes("dei")) return "dei";
+  if(t.includes("cha")) return "cha";
+  if(t.includes("banco")||t.includes("san miguel")) return "banco";
+  if(t==="asu"||t.includes("asu")) return "asu";
+  if(t==="py"||t.includes("paraguay")) return "py";
+  return "otras";
+}
+function jitterPoint([lat,lng], salt){
+  const s = (salt.split("").reduce((a,c)=>a+c.charCodeAt(0),0) % 1000)/1000;
+  return [lat+(s-.5)*.006, lng+(s-.5)*.008];
+}
+async function gFetchSheetRows(cfg){
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(cfg.range)}`;
+  const res = await fetch(url, { headers:{ Authorization:`Bearer ${gState.token}` } });
+  if(!res.ok) throw new Error(`Sheets API ${res.status}: revisá el ID de la planilla y que tu cuenta tenga acceso`);
+  const data = await res.json();
+  return data.values || [];
+}
+async function gFindDriveFileByName(name){
+  const q = encodeURIComponent(`name = '${name.replace(/'/g,"\\'")}' and trashed = false`);
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,parents)&pageSize=5`;
+  const res = await fetch(url, { headers:{ Authorization:`Bearer ${gState.token}` } });
+  if(!res.ok) return null;
+  const data = await res.json();
+  return (data.files && data.files[0]) || null;
+}
+async function gListFolderChildren(folderId){
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,mimeType)&pageSize=100&orderBy=name`;
+  const res = await fetch(url, { headers:{ Authorization:`Bearer ${gState.token}` } });
+  if(!res.ok) return [];
+  const data = await res.json();
+  return data.files || [];
+}
+function humanSize(bytes){
+  if(!bytes) return "—";
+  const kb = bytes/1024; if(kb<1024) return kb.toFixed(0)+" KB";
+  return (kb/1024).toFixed(1)+" MB";
+}
+function fmtFromFiles(children, fallback){
+  const exts = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder").map(c=>c.name.includes(".")?c.name.split(".").pop().toLowerCase():"");
+  if(exts.includes("shp")) return "Shapefile";
+  if(exts.some(e=>e==="tif"||e==="tiff")) return "GeoTIFF";
+  if(exts.includes("geojson")) return "GeoJSON";
+  if(exts.includes("csv")) return "CSV";
+  if(exts.some(e=>e==="kml"||e==="kmz")) return "KML / KMZ";
+  if(exts.includes("dwg")) return "DWG";
+  return fallback || (exts[0] ? exts[0].toUpperCase() : "Otro");
+}
+
+$("#gSync").addEventListener("click", async ()=>{
+  const cfg = gCfg();
+  if(!cfg.sheetId){ gStatus("Pegá el ID de tu planilla resiliencia_metadata."); return; }
+  $("#gSync").disabled = true; gStatus("Leyendo la planilla…");
+  try{
+    const rows = await gFetchSheetRows(cfg);
+    if(rows.length < 2){ gStatus("La planilla no tiene filas de datos todavía."); $("#gSync").disabled=false; return; }
+    const header = rows[0].map(h=>h.trim().toLowerCase());
+    const idx = name => header.indexOf(name);
+    const iID=idx("id"), iTitulo=idx("titulo"), iEpsg=header.findIndex(h=>h.includes("coorden")),
+          iTipo=idx("tipologia"), iSub=idx("subproyecto"), iFuente=idx("fuente"),
+          iFmt=idx("formato"), iRef=idx("referencia"), iUbi=idx("ubicacion");
+
+    const newCatalog = [];
+    for(let r=1;r<rows.length;r++){
+      const row = rows[r]; if(!row || !row.length) continue;
+      const id = (iID>=0 && row[iID]) || `d${r}`;
+      const titulo = (iTitulo>=0 && row[iTitulo]) || `Dataset ${id}`;
+      const epsgRaw = iEpsg>=0 ? row[iEpsg] : "";
+      const epsg = epsgRaw ? (String(epsgRaw).match(/^\d+$/) ? `EPSG:${epsgRaw}` : epsgRaw) : "EPSG:32721";
+      const eje = classifyTipologia(iTipo>=0?row[iTipo]:"");
+      const zona = classifySubproyecto(iSub>=0?row[iSub]:"");
+      const fuente = iFuente>=0?row[iFuente]:"";
+      const fmtHint = iFmt>=0?row[iFmt]:"";
+      const referencia = iRef>=0 ? row[iRef] : "";
+      const ubicacion = iUbi>=0 ? row[iUbi] : "";
+      gStatus(`Buscando en Drive: ${titulo}…`);
+      let files = fmtHint ? [fmtHint.toLowerCase()] : ["dat"], size = "—", folder = ubicacion || "sin ubicación en planilla", fmt = fmtHint || "Otro";
+      if(ubicacion){
+        const hit = await gFindDriveFileByName(ubicacion);
+        if(hit){
+          const parentId = hit.mimeType==="application/vnd.google-apps.folder" ? hit.id : (hit.parents && hit.parents[0]);
+          if(parentId){
+            const children = await gListFolderChildren(parentId);
+            if(children.length){
+              files = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder").map(c=>c.name.includes(".")?c.name.split(".").pop():c.name);
+              size = humanSize(children.reduce((a,c)=>a+(+c.size||0),0));
+              fmt = fmtFromFiles(children, fmtHint);
+            }
+          }
+          folder = hit.name;
+        }
+      }
+      newCatalog.push({
+        id, name: titulo, eje, zona, folder, fmt, geom:"point",
+        epsg, lic: LIC_CC, size, date: new Date().toLocaleDateString("es-PY",{day:"2-digit",month:"2-digit",year:"numeric"}),
+        author: fuente || "Equipo SIG", feats: 1, on: false, files, referencia,
+        g: [jitterPoint(ZONA_CENTERS[zona]||ZONA_CENTERS.otras, String(id))]
+      });
+    }
+    if(!newCatalog.length){ gStatus("La planilla no arrojó filas válidas."); $("#gSync").disabled=false; return; }
+
+    CATALOG.length = 0; CATALOG.push(...newCatalog);
+    FMT_STATS_RESET();
+    newCatalog.forEach(l=>FMT_STATS[l.fmt]=(FMT_STATS[l.fmt]||0)+1);
+    RECENT = newCatalog.slice(-5).reverse().map(l=>({name:l.name,folder:l.folder,fmt:l.fmt,eje:l.eje,size:l.size,date:l.date,by:l.author,id:l.id}));
+
+    if(map){ Object.values(drawn).forEach(g=>map.removeLayer(g)); drawn={};
+      newCatalog.forEach(l=>{ drawn[l.id]=buildLayer(l); if(l.on) drawn[l.id].addTo(map); }); }
+
+    renderKpis(); renderRecent(); renderDonut(); renderEjeCards(); renderCatalog(); renderTree();
+    gSetPill("on", `Sincronizado · ${newCatalog.length} capas`);
+    gStatus(`Catálogo leído de tu planilla, con archivos y tamaños reales tomados de la carpeta que indica "ubicacion". La posición en el mapa es aproximada (centro de zona) hasta convertir las geometrías reales a GeoJSON.`);
+  }catch(err){
+    gSetPill("err","Error de sincronización"); gStatus(err.message||String(err));
+  }
+  $("#gSync").disabled = false;
+});
+function FMT_STATS_RESET(){ Object.keys(FMT_STATS).forEach(k=>delete FMT_STATS[k]); }
+
+async function gAppendRow(cfg, row){
+  const sheetName = cfg.range.split("!")[0] || "Table1";
+  const headerRows = await gFetchSheetRows({...cfg, range:`${sheetName}!1:1`});
+  const header = (headerRows[0]||[]).map(h=>h.trim().toLowerCase());
+  const pick = (h) => {
+    if(h==="id") return row.id;
+    if(h==="titulo") return row.titulo;
+    if(h.includes("coorden")) return row.coordenadas||"";
+    if(h==="tipologia") return row.tipologia;
+    if(h==="subproyecto") return row.subproyecto;
+    if(h==="fuente") return row.fuente;
+    if(h==="formato") return row.formato;
+    if(h==="referencia") return row.referencia||"";
+    if(h==="ubicacion") return row.ubicacion;
+    return "";
+  };
+  const line = header.map(pick);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(sheetName+"!A:A")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const res = await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${gState.token}`,"Content-Type":"application/json"},body:JSON.stringify({values:[line]})});
+  if(!res.ok) throw new Error(`No se pudo escribir en la planilla (Sheets API ${res.status}). Revisá que el Client ID tenga permiso de escritura y que hayas aceptado el acceso.`);
+}
+$("#nSubmit").addEventListener("click", async ()=>{
+  const cfg = gCfg();
+  const titulo=$("#nTitulo").value.trim(), ubicacion=$("#nUbicacion").value.trim(), fuente=$("#nFuente").value.trim();
+  if(!gState.token){ $("#nStatus").textContent="Conectá tu cuenta de Google primero (arriba)."; return; }
+  if(!cfg.sheetId){ $("#nStatus").textContent="Falta el ID de la planilla."; return; }
+  if(!titulo||!ubicacion||!fuente){ $("#nStatus").textContent="Completá título, ubicación y quién sube el dato."; return; }
+  $("#nSubmit").disabled = true; $("#nStatus").textContent="Agregando fila a la planilla…";
+  try{
+    const id = "n"+Date.now().toString(36);
+    await gAppendRow(cfg, {
+      id, titulo, tipologia:$("#nTipologia").value, subproyecto:$("#nSubproyecto").value,
+      fuente, formato:$("#nFormato").value.trim(), ubicacion, referencia:$("#nReferencia").value.trim()
+    });
+    $("#nStatus").textContent="Agregado. Sincronizando…";
+    $("#nTitulo").value=""; $("#nUbicacion").value=""; $("#nFuente").value=""; $("#nFormato").value=""; $("#nReferencia").value="";
+    await $("#gSync").onclick?.() ?? $("#gSync").click();
+    $("#nStatus").textContent="Listo, ya está en el dashboard y el mapa.";
+  }catch(err){
+    $("#nStatus").textContent = err.message||String(err);
+  }
+  $("#nSubmit").disabled = false;
+});
+
+/* ===================== administrar ===================== */
+function renderCatalog(){
+  $("#catCount").textContent = `${CATALOG.length} capas georreferenciadas`;
+  $("#catBody").innerHTML = CATALOG.map(l=>`
+    <tr>
+      <td><div style="font-weight:500;color:var(--color-text)">${esc(l.name)}</div>
+        <div class="muted" style="font-size:10.5px">${esc(l.feats)} registros · ${esc(l.size)}</div></td>
+      <td><span class="tagx" style="color:${EJES[l.eje].color};border-color:color-mix(in srgb,${EJES[l.eje].hex} 40%,transparent)">
+        <span class="dot" style="background:${EJES[l.eje].color}"></span>${esc(EJES[l.eje].name.replace("Datos ",""))}</span></td>
+      <td>${esc(l.fmt)}</td>
+      <td class="mono" style="font-size:11.5px">${esc(l.epsg)}</td>
+      <td>${esc(l.lic)}</td>
+      <td class="mono" style="font-size:11px">${esc(l.folder)}/</td>
+      <td style="text-align:right"><button class="btn btn-primary btn-sm" data-dl3="${l.id}">ZIP</button></td>
+    </tr>`).join("");
+  $$("[data-dl3]").forEach(b=>b.addEventListener("click",()=>openDownload([b.dataset.dl3])));
+}
+
+/* ===================== arranque ===================== */
+renderKpis(); renderRecent(); renderDonut(); renderEjeCards(); renderCatalog(); renderLegend(); renderTree();
+if(window.L) initMap(); else window.addEventListener("load",()=>{ if(window.L) initMap(); });
+</script>
+</body>
+</html>
