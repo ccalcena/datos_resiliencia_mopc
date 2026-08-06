@@ -1,4 +1,6 @@
-# Handoff: Repositorio Geoespacial — MOPC / Franja Costera de Asunción
+ Repositorio Geoespacial — MOPC / Franja Costera de Asunción
+
+URL: https://ccalcena.github.io/datos_resilienciencia_mop/
 
 ## Overview
 Repositorio interno para centralizar todos los datos georreferenciados del proyecto **Resiliencia Urbana de la Franja Costera de Asunción** (MOPC). Tres módulos: un dashboard de estado, un explorador de mapa con capas agrupadas por eje temático (urbano / social / ambiental) que se prenden y apagan, y una descarga de cada dataset como ZIP (carpeta completa, porque un shapefile necesita sus 6 archivos acompañantes para abrirse). Incluye una pantalla de administración para subir nuevos datos.
