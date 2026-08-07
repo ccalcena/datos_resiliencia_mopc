@@ -967,32 +967,49 @@ function renderDl(){
   }
 
   if(dlStep===3){
-    const steps = ["Reuniendo carpetas de la unidad…","Verificando los 6 archivos de cada shapefile…","Escribiendo metadatos y licencia…","Comprimiendo…"];
+    const steps = ["Reuniendo carpetas de la unidad…","Descargando archivos reales de Drive…","Escribiendo metadatos y licencia…","Comprimiendo…"];
     $("#dlBody").innerHTML = `<div class="zipfiles" id="dlProg">${steps.map((s,i)=>
       `<div data-i="${i}" style="opacity:.35"><span class="spin" style="visibility:hidden"></span>${esc(s)}</div>`).join("")}</div>`;
     $("#dlFoot").innerHTML = "";
     const rows = $$("#dlProg div");
-    let i=0;
-    const tick = ()=>{
-      if(i>0){ rows[i-1].style.opacity=1; rows[i-1].querySelector(".spin").outerHTML =
-        `<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="var(--eje-amb)" stroke-width="1.6"><path d="M2 6.4 4.6 9 10 3.4"/></svg>`; }
-      if(i<rows.length){ rows[i].style.opacity=1; rows[i].querySelector(".spin").style.visibility="visible"; i++; setTimeout(tick,520); }
-      else finishZip();
-    };
-    tick();
+    const markActive = i => { rows[i].style.opacity=1; rows[i].querySelector(".spin").style.visibility="visible"; };
+    const markDone = i => { rows[i].style.opacity=1; rows[i].querySelector(".spin").outerHTML =
+      `<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="var(--eje-amb)" stroke-width="1.6"><path d="M2 6.4 4.6 9 10 3.4"/></svg>`; };
+    runZip(markActive, markDone).catch(err=>{
+      $("#dlBody").insertAdjacentHTML("beforeend", `<div class="err">${esc(err.message||String(err))}</div>`);
+      $("#dlFoot").innerHTML = `<button class="btn btn-ghost" id="dlCancel3">Cerrar</button>`;
+      $("#dlCancel3").onclick = closeDl;
+    });
   }
 }
 
-function finishZip(){
+async function runZip(markActive, markDone){
   const ls = dlIds.map(byId);
   const stamp = new Date().toISOString().slice(0,10);
-  const files = [];
   const rootName = ls.length===1 ? ls[0].name : `Franja_Costera_seleccion_${stamp}`;
-  ls.forEach(l=>{
+  const files = []; // solo para el listado final en pantalla
+  markActive(0);
+  const zip = new JSZip();
+  markDone(0); markActive(1);
+
+  for(const l of ls){
     const base = `${rootName}/${l.folder.split("/").pop()}`;
-    files.push({name:`${base}/${l.name}.geojson`, data:geojsonOf(l)});
-    files.push({name:`${base}/metadatos.txt`, data:
-`Dataset: ${l.name}
+    if(l.driveFiles && l.driveFiles.length && gState.token){
+      for(const f of l.driveFiles){
+        try{
+          const buf = await driveFileArrayBuffer(f.id);
+          zip.file(`${base}/${f.name}`, buf);
+          files.push({name:`${base}/${f.name}`});
+        }catch(err){
+          zip.file(`${base}/${f.name}.NO_DESCARGADO.txt`, `No se pudo traer este archivo de Drive: ${err.message||err}`);
+          files.push({name:`${base}/${f.name}.NO_DESCARGADO.txt`});
+        }
+      }
+    } else {
+      zip.file(`${base}/${l.name}.geojson`, geojsonOf(l));
+      files.push({name:`${base}/${l.name}.geojson`});
+    }
+    const meta = `Dataset: ${l.name}
 Eje: ${EJES[l.eje].name}
 Formato original: ${l.fmt}
 Geometría: ${l.geom} — ${l.feats} registros
@@ -1004,20 +1021,26 @@ Fecha de carga: ${l.date}   Responsable: ${l.author}   Peso: ${l.size}
 
 Cita sugerida:
 ${citeOf(l)}
-`});
-  });
-  files.push({name:`${rootName}/LICENCIA.txt`, data:
+`;
+    zip.file(`${base}/metadatos.txt`, meta);
+    files.push({name:`${base}/metadatos.txt`});
+  }
+  markDone(1); markActive(2);
+
+  zip.file(`${rootName}/LICENCIA.txt`,
 `Licencias presentes en este paquete: ${ls.map(l=>l.lic).filter((v,i,a)=>a.indexOf(v)===i).join(" | ")}
 
 CC BY 4.0 — se permite copiar, redistribuir y adaptar, incluso comercialmente,
-citando al Ministerio de Obras Públicas y Comunicaciones (MOPC) del Paraguay.
+citing al Ministerio de Obras Públicas y Comunicaciones (MOPC) del Paraguay.
 Las capas marcadas "Uso interno MOPC" no pueden republicarse sin autorización.
-`});
-  files.push({name:`${rootName}/metadatos.csv`, data:
+`.replace("citing","citando"));
+  files.push({name:`${rootName}/LICENCIA.txt`});
+  zip.file(`${rootName}/metadatos.csv`,
 "dataset,eje,formato,geometria,registros,epsg,licencia,carpeta,fecha_carga,responsable,peso\n"+
 ls.map(l=>[l.name,EJES[l.eje].name,l.fmt,l.geom,l.feats,l.epsg,l.lic,l.folder,l.date,l.author,l.size]
-  .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n")+"\n"});
-  files.push({name:`${rootName}/LEEME.txt`, data:
+  .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n")+"\n");
+  files.push({name:`${rootName}/metadatos.csv`});
+  zip.file(`${rootName}/LEEME.txt`,
 `Repositorio Geoespacial — Proyecto Resiliencia Urbana de la Franja Costera de Asunción
 Ministerio de Obras Públicas y Comunicaciones (MOPC) · Paraguay
 
@@ -1028,15 +1051,19 @@ Uso declarado: ${dlForm.uso}
 Contenido (${ls.length} ${ls.length===1?"capa":"capas"}):
 ${ls.map(l=>` - ${l.folder}/  →  ${l.name} (${l.fmt}, ${l.feats} registros, ${l.epsg})`).join("\n")}
 
-Cada carpeta viene completa: un shapefile no se abre sin sus archivos acompañantes
-(.shp .shx .dbf .prj .cpg .qmd). No separes ni renombres archivos dentro de una carpeta.
-Además de los archivos originales, se incluye una versión .geojson en CRS84 para
-previsualización rápida y metadatos.txt con la ficha de cada capa.
+Cada carpeta viene con los archivos originales tal cual están en la unidad: un shapefile
+no se abre sin sus archivos acompañantes (.shp .shx .dbf .prj .cpg .qmd). No separes ni
+renombres archivos dentro de una carpeta.
 
 Consultas: sig@mopc.gov.py
-`});
+`);
+  files.push({name:`${rootName}/LEEME.txt`});
+  await new Promise(r=>setTimeout(r,150));
+  markDone(2); markActive(3);
 
-  const blob = zipStore(files);
+  const blob = await zip.generateAsync({type:"blob"});
+  markDone(3);
+
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `${rootName}.zip`;
@@ -1057,6 +1084,7 @@ Consultas: sig@mopc.gov.py
       ${files.length>8?`<div class="muted" style="padding-left:16px">+${files.length-8} archivos más</div>`:""}</div>`;
   $("#dlFoot").innerHTML = `<button class="btn btn-primary" id="dlDone">Listo</button>`;
   $("#dlDone").onclick = ()=>{ closeDl(); toast("Descarga registrada en el historial del repositorio."); };
+  return blob;
 }
 window.openDownload = openDownload;
 
@@ -1251,7 +1279,7 @@ $("#gSync").addEventListener("click", async ()=>{
       const referencia = iRef>=0 ? row[iRef] : "";
       const ubicacion = iUbi>=0 ? row[iUbi] : "";
       gStatus(`Buscando en Drive: ${titulo}…`);
-      let files = fmtHint ? [fmtHint.toLowerCase()] : ["dat"], size = "—", folder = ubicacion || "sin ubicación en planilla", fmt = fmtHint || "Otro";
+      let files = fmtHint ? [fmtHint.toLowerCase()] : ["dat"], size = "—", folder = ubicacion || "sin ubicación en planilla", fmt = fmtHint || "Otro", driveFiles = null;
       let geoRes = null, geoNote = "formato no soportado para geometría real";
       if(ubicacion){
         const hit = await gFindDriveFileByName(ubicacion);
@@ -1260,7 +1288,9 @@ $("#gSync").addEventListener("click", async ()=>{
           if(parentId){
             const children = await gListFolderChildren(parentId);
             if(children.length){
-              files = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder").map(c=>c.name.includes(".")?c.name.split(".").pop():c.name);
+              const realFiles = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder");
+              files = realFiles.map(c=>c.name.includes(".")?c.name.split(".").pop():c.name);
+              driveFiles = realFiles.map(c=>({id:c.id,name:c.name,size:+c.size||0}));
               size = humanSize(children.reduce((a,c)=>a+(+c.size||0),0));
               fmt = fmtFromFiles(children, fmtHint);
               gStatus(`Leyendo geometría real: ${titulo}…`);
@@ -1279,7 +1309,7 @@ $("#gSync").addEventListener("click", async ()=>{
         geojson: geoRes ? geoRes.geojson : null,
         approx, geoNote: approx ? geoNote : "",
         epsg, lic: LIC_CC, size, date: new Date().toLocaleDateString("es-PY",{day:"2-digit",month:"2-digit",year:"numeric"}),
-        author: fuente || "Equipo SIG", feats: geoRes ? geoRes.feats : 1, on: false, files, referencia,
+        author: fuente || "Equipo SIG", feats: geoRes ? geoRes.feats : 1, on: false, files, referencia, driveFiles,
         g: geoRes ? null : [jitterPoint(ZONA_CENTERS[zona]||ZONA_CENTERS.otras, String(id))]
       });
     }
