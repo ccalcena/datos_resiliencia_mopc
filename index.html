@@ -14,6 +14,9 @@
 <script src="image-slot.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://unpkg.com/shpjs@4/dist/shp.js"></script>
+<script src="https://unpkg.com/proj4@2/dist/proj4.js"></script>
 <style>
   :root{
     --font-sf: -apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
@@ -720,18 +723,26 @@ function initMap(){
   if($(".view[data-view='mapa']").hasAttribute("data-active")){ map.invalidateSize(); fitActive(); mapFitted=true; }
 }
 function buildLayer(l){
-  const c = EJES[l.eje].hex, g = L.layerGroup();
-  const pop = `<h4>${esc(l.name)}</h4>
+  const c = EJES[l.eje].hex;
+  const popBase = `<h4>${esc(l.name)}</h4>
     <div style="color:#9397ab;font-size:11px;line-height:1.6">
     ${esc(EJES[l.eje].name)} · ${esc(l.fmt)}<br>${esc(l.feats)} ${l.geom==="point"?"puntos":l.geom==="line"?"líneas":"polígonos"} · ${esc(l.epsg)}<br>
-    <span class="mono">${esc(l.folder)}/</span></div>
+    <span class="mono">${esc(l.folder)}/</span>${l.approx?'<br><span style="color:#c9860a">Ubicación aproximada — no se pudo leer la geometría real ('+esc(l.geoNote||"formato no soportado")+')</span>':''}</div>
     <div class="pop-dl"><button class="btn btn-primary btn-sm" onclick="openDownload(['${l.id}'])">Descargar carpeta ZIP</button></div>`;
+  if(l.geojson){
+    return L.geoJSON(l.geojson,{
+      style:{color:c,weight:l.geom==="line"?2.2:1.6,opacity:.9,fillColor:c,fillOpacity:l.geom==="polygon"?.16:.7},
+      pointToLayer:(f,latlng)=>L.circleMarker(latlng,{radius:3.4,color:c,weight:1,fillColor:c,fillOpacity:.7}),
+      onEachFeature:(f,layer)=>layer.bindPopup(popBase)
+    });
+  }
+  const g = L.layerGroup();
   if(l.geom==="point"){
-    l.g.forEach(p=>g.addLayer(L.circleMarker(p,{radius:3.4,color:c,weight:1,fillColor:c,fillOpacity:.7}).bindPopup(pop)));
+    l.g.forEach(p=>g.addLayer(L.circleMarker(p,{radius:3.4,color:c,weight:1,fillColor:c,fillOpacity:.7}).bindPopup(popBase)));
   } else if(l.geom==="line"){
-    l.g.forEach(line=>g.addLayer(L.polyline(line,{color:c,weight:2.2,opacity:.9}).bindPopup(pop)));
+    l.g.forEach(line=>g.addLayer(L.polyline(line,{color:c,weight:2.2,opacity:.9}).bindPopup(popBase)));
   } else {
-    l.g.forEach(poly=>g.addLayer(L.polygon(poly,{color:c,weight:1.6,opacity:.95,fillColor:c,fillOpacity:.16}).bindPopup(pop)));
+    l.g.forEach(poly=>g.addLayer(L.polygon(poly,{color:c,weight:1.6,opacity:.95,fillColor:c,fillOpacity:.16}).bindPopup(popBase)));
   }
   return g;
 }
@@ -741,8 +752,15 @@ function setLayer(id,on){
   if(on) drawn[id].addTo(map); else map.removeLayer(drawn[id]);
 }
 function fitActive(){
-  const pts=[]; CATALOG.filter(l=>l.on).forEach(l=>l.g.forEach(x=>Array.isArray(x[0])?pts.push(...x):pts.push(x)));
-  if(pts.length && map) map.fitBounds(L.latLngBounds(pts).pad(.12));
+  const boundsList=[];
+  CATALOG.filter(l=>l.on).forEach(l=>{
+    if(l.geojson){ try{ const b=L.geoJSON(l.geojson).getBounds(); if(b.isValid()) boundsList.push(b); }catch(e){} }
+    else if(l.g){ const pts=[]; l.g.forEach(x=>Array.isArray(x[0])?pts.push(...x):pts.push(x)); if(pts.length) boundsList.push(L.latLngBounds(pts)); }
+  });
+  if(boundsList.length && map){
+    const b = boundsList[0]; boundsList.slice(1).forEach(x=>b.extend(x));
+    map.fitBounds(b.pad(.12));
+  }
 }
 
 let groupMode = "eje";
@@ -1109,6 +1127,79 @@ async function gFindDriveFileByName(name){
   const data = await res.json();
   return (data.files && data.files[0]) || null;
 }
+async function driveFileArrayBuffer(fileId){
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${gState.token}`}});
+  if(!res.ok) throw new Error(`no se pudo descargar de Drive (HTTP ${res.status})`);
+  return res.arrayBuffer();
+}
+async function driveFileText(fileId){ return new TextDecoder("utf-8").decode(await driveFileArrayBuffer(fileId)); }
+function extOf(name){ const m=name.toLowerCase().match(/\.([a-z0-9]+)$/); return m?m[1]:""; }
+if(window.proj4) proj4.defs("EPSG:32721","+proj=utm +zone=21 +south +datum=WGS84 +units=m +no_defs +type=crs");
+function walkCoords(coords, fn){
+  return typeof coords[0]==="number" ? fn(coords) : coords.map(c=>walkCoords(c, fn));
+}
+function reprojectUtm21sIfNeeded(gj){
+  const sample = gj.features.find(f=>f.geometry && f.geometry.coordinates && f.geometry.coordinates.length);
+  if(!sample) return gj;
+  let x0;
+  (function find(c){ if(x0===undefined){ if(typeof c[0]==="number") x0=c; else c.forEach(find); } })(sample.geometry.coordinates);
+  if(!x0 || Math.abs(x0[0])<=180 && Math.abs(x0[1])<=90) return gj; // ya está en lon/lat válido
+  gj.features.forEach(f=>{
+    if(!f.geometry || !f.geometry.coordinates) return;
+    f.geometry.coordinates = walkCoords(f.geometry.coordinates, pt=>proj4("EPSG:32721","EPSG:4326",[pt[0],pt[1]]));
+  });
+  return gj;
+}
+function normalizeGeojson(gj){
+  if(!gj || !gj.features || !gj.features.length) return null;
+  gj = reprojectUtm21sIfNeeded(gj);
+  const types = gj.features.map(f=>f.geometry&&f.geometry.type).filter(Boolean);
+  let geom = "point";
+  if(types.some(t=>t.includes("Polygon"))) geom="polygon";
+  else if(types.some(t=>t.includes("Line"))) geom="line";
+  return {geojson:gj, geom, feats:gj.features.length};
+}
+function parseCsvPoints(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+  if(lines.length<2) return null;
+  const header = lines[0].split(",").map(h=>h.trim().toLowerCase());
+  const iLat = header.findIndex(h=>/^(lat|latitud|y)$/.test(h));
+  const iLon = header.findIndex(h=>/^(lon|lng|longitud|x)$/.test(h));
+  if(iLat<0||iLon<0) return null;
+  const features = lines.slice(1).map(line=>{
+    const cols = line.split(",");
+    const lat = parseFloat(cols[iLat]), lon = parseFloat(cols[iLon]);
+    if(isNaN(lat)||isNaN(lon)) return null;
+    const props={}; header.forEach((h,i)=>props[h]=cols[i]);
+    return {type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:props};
+  }).filter(Boolean);
+  return features.length ? {type:"FeatureCollection",features} : null;
+}
+async function resolveGeometry(children){
+  const byExt = {};
+  children.forEach(c=>{ const e=extOf(c.name); if(!byExt[e]) byExt[e]=c; });
+  try{
+    if(byExt.shp && byExt.dbf){
+      const [shpBuf,dbfBuf] = await Promise.all([driveFileArrayBuffer(byExt.shp.id), driveFileArrayBuffer(byExt.dbf.id)]);
+      const zip = new JSZip();
+      zip.file("data.shp", shpBuf); zip.file("data.dbf", dbfBuf);
+      if(byExt.shx) zip.file("data.shx", await driveFileArrayBuffer(byExt.shx.id));
+      if(byExt.prj) zip.file("data.prj", await driveFileText(byExt.prj.id));
+      const zipBuf = await zip.generateAsync({type:"arraybuffer"});
+      const gj = await shp(zipBuf);
+      return normalizeGeojson(Array.isArray(gj)?gj[0]:gj);
+    }
+    if(byExt.geojson || byExt.json){
+      const gj = JSON.parse(await driveFileText((byExt.geojson||byExt.json).id));
+      return normalizeGeojson(gj);
+    }
+    if(byExt.csv){
+      const gj = parseCsvPoints(await driveFileText(byExt.csv.id));
+      if(gj) return normalizeGeojson(gj);
+    }
+  }catch(err){ return {error: err.message||String(err)}; }
+  return null;
+}
 async function gListFolderChildren(folderId){
   const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
   const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,mimeType)&pageSize=100&orderBy=name`;
@@ -1161,6 +1252,7 @@ $("#gSync").addEventListener("click", async ()=>{
       const ubicacion = iUbi>=0 ? row[iUbi] : "";
       gStatus(`Buscando en Drive: ${titulo}…`);
       let files = fmtHint ? [fmtHint.toLowerCase()] : ["dat"], size = "—", folder = ubicacion || "sin ubicación en planilla", fmt = fmtHint || "Otro";
+      let geoRes = null, geoNote = "formato no soportado para geometría real";
       if(ubicacion){
         const hit = await gFindDriveFileByName(ubicacion);
         if(hit){
@@ -1171,16 +1263,24 @@ $("#gSync").addEventListener("click", async ()=>{
               files = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder").map(c=>c.name.includes(".")?c.name.split(".").pop():c.name);
               size = humanSize(children.reduce((a,c)=>a+(+c.size||0),0));
               fmt = fmtFromFiles(children, fmtHint);
+              gStatus(`Leyendo geometría real: ${titulo}…`);
+              const res = await resolveGeometry(children);
+              if(res && res.error) geoNote = res.error;
+              else if(res) geoRes = res;
             }
           }
           folder = hit.name;
         }
       }
+      const approx = !geoRes;
       newCatalog.push({
-        id, name: titulo, eje, zona, folder, fmt, geom:"point",
+        id, name: titulo, eje, zona, folder, fmt,
+        geom: geoRes ? geoRes.geom : "point",
+        geojson: geoRes ? geoRes.geojson : null,
+        approx, geoNote: approx ? geoNote : "",
         epsg, lic: LIC_CC, size, date: new Date().toLocaleDateString("es-PY",{day:"2-digit",month:"2-digit",year:"numeric"}),
-        author: fuente || "Equipo SIG", feats: 1, on: false, files, referencia,
-        g: [jitterPoint(ZONA_CENTERS[zona]||ZONA_CENTERS.otras, String(id))]
+        author: fuente || "Equipo SIG", feats: geoRes ? geoRes.feats : 1, on: false, files, referencia,
+        g: geoRes ? null : [jitterPoint(ZONA_CENTERS[zona]||ZONA_CENTERS.otras, String(id))]
       });
     }
     if(!newCatalog.length){ gStatus("La planilla no arrojó filas válidas."); $("#gSync").disabled=false; return; }
@@ -1195,7 +1295,8 @@ $("#gSync").addEventListener("click", async ()=>{
 
     renderKpis(); renderRecent(); renderDonut(); renderEjeCards(); renderCatalog(); renderTree();
     gSetPill("on", `Sincronizado · ${newCatalog.length} capas`);
-    gStatus(`Catálogo leído de tu planilla, con archivos y tamaños reales tomados de la carpeta que indica "ubicacion". La posición en el mapa es aproximada (centro de zona) hasta convertir las geometrías reales a GeoJSON.`);
+    const nApprox = newCatalog.filter(l=>l.approx).length;
+    gStatus(`Catálogo leído de tu planilla. Geometría real cargada desde Shapefile/GeoJSON/CSV cuando fue posible.${nApprox?` ${nApprox} capa(s) quedaron con ubicación aproximada (formato sin soporte de geometría, ej. GeoTIFF/DWG).`:""}`);
   }catch(err){
     gSetPill("err","Error de sincronización"); gStatus(err.message||String(err));
   }
