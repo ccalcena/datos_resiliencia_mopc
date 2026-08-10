@@ -10,7 +10,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="_ds/nocturne-62227741-f192-471f-9c24-6dc1d86a8029/styles.css">
 <script src="_ds/nocturne-62227741-f192-471f-9c24-6dc1d86a8029/_ds_bundle.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="image-slot.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
@@ -428,57 +427,18 @@
       <div>
         <div class="kicker">Administración</div>
         <h1 style="font-size:26px;margin:0 0 4px">Sincronizar el repositorio</h1>
-        <p class="muted" style="font-size:12.5px;max-width:64ch">Cargar y clasificar datos ahora se hace en tu planilla maestra y en Drive. Conectá la cuenta acá para traer ese catálogo al dashboard, el mapa y la descarga.</p>
+        <p class="muted" style="font-size:12.5px;max-width:64ch">El dashboard lee en vivo la planilla maestra y la carpeta de Drive del proyecto — es el mismo repositorio para todos los que abren este enlace, nadie necesita iniciar sesión ni conectar su propia cuenta.</p>
       </div>
 
       <div class="panel gcard">
         <div class="phead" style="padding:0;border:0">
-          <h3>Conexión con Google Drive</h3>
-          <span class="gpill" id="gPill" data-state="off">Sin conectar</span>
+          <h3>Fuente de datos</h3>
+          <span class="gpill" id="gPill" data-state="off">Sin sincronizar</span>
         </div>
-        <p class="muted" style="font-size:11.5px;margin:0;max-width:70ch">Conectá tu cuenta de Google para leer tu planilla maestra <span class="mono">resiliencia_metadata</span>: cada fila se cataloga con el nombre de la columna <span class="mono">titulo</span>, clasificada por <span class="mono">tipologia</span> (eje) y <span class="mono">subproyecto</span> (zona), y la columna <span class="mono">ubicacion</span> se usa para ubicar la carpeta real en Drive y traer sus archivos.</p>
+        <p class="muted" style="font-size:11.5px;margin:0;max-width:70ch">Lee la planilla maestra <span class="mono">resiliencia_metadata</span>: cada fila se cataloga con el nombre de la columna <span class="mono">titulo</span>, clasificada por <span class="mono">tipologia</span> (eje) y <span class="mono">subproyecto</span> (zona), y la columna <span class="mono">ubicacion</span> se usa para ubicar la carpeta real en Drive y traer sus archivos. Se sincroniza sola al abrir el dashboard.</p>
         <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="gConnect">Conectar con Google</button>
-          <button class="btn btn-ghost btn-sm" id="gSync" disabled>Sincronizar planilla</button>
+          <button class="btn btn-primary btn-sm" id="gSync">Sincronizar ahora</button>
           <span class="muted" style="font-size:11px" id="gStatus"></span>
-        </div>
-      </div>
-
-      <div class="panel gcard">
-        <div class="phead" style="padding:0;border:0">
-          <h3>Agregar entrada nueva</h3>
-        </div>
-        <p class="muted" style="font-size:11.5px;margin:0;max-width:70ch">Esto agrega una fila a tu planilla <span class="mono">resiliencia_metadata</span>. Subí el archivo a la carpeta correspondiente en Drive primero, y acá cargás sus datos — luego sincronizá para verlo en el dashboard y el mapa.</p>
-        <div class="grow">
-          <div><label for="nTitulo">Título del dataset *</label>
-            <input class="input" id="nTitulo" placeholder="Ej. vias_internas"></div>
-          <div><label for="nTipologia">Eje (tipologia) *</label>
-            <select class="input" id="nTipologia">
-              <option value="Urbano">Urbano</option>
-              <option value="Social">Social</option>
-              <option value="Ambiental">Ambiental</option>
-            </select></div>
-          <div><label for="nSubproyecto">Zona (subproyecto) *</label>
-            <select class="input" id="nSubproyecto">
-              <option value="ASU">ASU</option>
-              <option value="PY">PY</option>
-              <option value="CHA">CHA</option>
-              <option value="Parque Caballero">Parque Caballero</option>
-              <option value="DEI">DEI</option>
-              <option value="Banco San Miguel">Banco San Miguel</option>
-            </select></div>
-          <div><label for="nUbicacion">Nombre de la carpeta/archivo en Drive *</label>
-            <input class="input" id="nUbicacion" placeholder="Nombre exacto tal cual aparece en Drive"></div>
-          <div><label for="nFormato">Formato</label>
-            <input class="input" id="nFormato" placeholder="shp, tif, csv…"></div>
-          <div><label for="nFuente">Quién sube el dato *</label>
-            <input class="input" id="nFuente" placeholder="Tu nombre o institución"></div>
-          <div class="full"><label for="nReferencia">Referencia / cita (opcional)</label>
-            <input class="input" id="nReferencia" placeholder="Ej. INFONA (2022). Censo forestal…"></div>
-        </div>
-        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="nSubmit">Agregar a la planilla</button>
-          <span class="muted" style="font-size:11px" id="nStatus"></span>
         </div>
       </div>
 
@@ -994,7 +954,7 @@ async function runZip(markActive, markDone){
 
   for(const l of ls){
     const base = `${rootName}/${l.folder.split("/").pop()}`;
-    if(l.driveFiles && l.driveFiles.length && gState.token){
+    if(l.driveFiles && l.driveFiles.length){
       for(const f of l.driveFiles){
         try{
           const buf = await driveFileArrayBuffer(f.id);
@@ -1055,7 +1015,7 @@ Cada carpeta viene con los archivos originales tal cual están en la unidad: un 
 no se abre sin sus archivos acompañantes (.shp .shx .dbf .prj .cpg .qmd). No separes ni
 renombres archivos dentro de una carpeta.
 
-Consultas: calcenaceci@gmail.com
+Consultas: sig@mopc.gov.py
 `);
   files.push({name:`${rootName}/LEEME.txt`});
   await new Promise(r=>setTimeout(r,150));
@@ -1091,34 +1051,16 @@ window.openDownload = openDownload;
 /* ===================== conexión Google Drive / Sheets ===================== */
 /* Configuración fija del repositorio — editar acá si cambiás de planilla, carpeta o proyecto de Google Cloud */
 const DRIVE_CONFIG = {
-  clientId: "696489489118-7ugf4epcibdqsdgsmuinca0t9mc8qerp.apps.googleusercontent.com",   // Client ID de Google Cloud (termina en .apps.googleusercontent.com)
+  apiKey: "AIzaSyA9w0jYd0k8TezpZcX6C_XXtC69wKr7_UI",   // API Key de Google Cloud restringida a Sheets API + Drive API (pública de solo lectura)
   sheetId: "1GJ_KuQXlODZZJNYonmx7xfSMkaaHhbGunzWHb73Zm9k",   // planilla resiliencia_metadata
   range: "Sheet1!A:I",
   rootFolder: "1wZRVnMicmCuvqWUDd5tcmABx5HfyV1Ne"            // carpeta raíz de Drive
 };
-const GSCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly";
-const gState = { token:null, tokenClient:null, connected:false };
+// La planilla y la carpeta raíz de Drive deben estar compartidas como "Cualquiera con el enlace — Lector":
+// así todos los que abren este dashboard leen el mismo repositorio, sin conectar su propia cuenta.
 const gCfg = () => DRIVE_CONFIG;
 function gSetPill(state, text){ const p=$("#gPill"); p.dataset.state=state; p.textContent=text; }
 function gStatus(msg){ $("#gStatus").textContent = msg||""; }
-
-$("#gConnect").addEventListener("click",()=>{
-  const cfg = gCfg();
-  if(!cfg.clientId){ gStatus("Falta configurar el Client ID en DRIVE_CONFIG dentro del archivo."); return; }
-  if(!window.google?.accounts?.oauth2){ gStatus("La librería de Google todavía está cargando, esperá un segundo y reintentá."); return; }
-  if(!gState.tokenClient){
-    gState.tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: cfg.clientId, scope: GSCOPES,
-      callback: (resp)=>{
-        if(resp.error){ gSetPill("err","Error de acceso"); gStatus(resp.error); return; }
-        gState.token = resp.access_token; gState.connected = true;
-        gSetPill("on","Conectado"); gStatus("Cuenta conectada. Ahora sincronizá la planilla.");
-        $("#gSync").disabled = false;
-      }
-    });
-  }
-  gState.tokenClient.requestAccessToken({prompt:""});
-});
 
 function classifyTipologia(raw){
   const t = (raw||"").toLowerCase();
@@ -1141,22 +1083,25 @@ function jitterPoint([lat,lng], salt){
   return [lat+(s-.5)*.006, lng+(s-.5)*.008];
 }
 async function gFetchSheetRows(cfg){
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(cfg.range)}`;
-  const res = await fetch(url, { headers:{ Authorization:`Bearer ${gState.token}` } });
-  if(!res.ok) throw new Error(`Sheets API ${res.status}: revisá el ID de la planilla y que tu cuenta tenga acceso`);
+  if(!cfg.apiKey){ throw new Error("Falta la API Key en DRIVE_CONFIG dentro del archivo."); }
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(cfg.range)}?key=${cfg.apiKey}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`Sheets API ${res.status}: revisá que la planilla esté compartida como "Cualquiera con el enlace — Lector" y que la API Key sea válida`);
   const data = await res.json();
   return data.values || [];
 }
 async function gFindDriveFileByName(name){
+  const cfg = gCfg();
   const q = encodeURIComponent(`name = '${name.replace(/'/g,"\\'")}' and trashed = false`);
-  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,parents)&pageSize=5`;
-  const res = await fetch(url, { headers:{ Authorization:`Bearer ${gState.token}` } });
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,parents)&pageSize=5&key=${cfg.apiKey}`;
+  const res = await fetch(url);
   if(!res.ok) return null;
   const data = await res.json();
   return (data.files && data.files[0]) || null;
 }
 async function driveFileArrayBuffer(fileId){
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${gState.token}`}});
+  const cfg = gCfg();
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${cfg.apiKey}`);
   if(!res.ok) throw new Error(`no se pudo descargar de Drive (HTTP ${res.status})`);
   return res.arrayBuffer();
 }
@@ -1229,9 +1174,10 @@ async function resolveGeometry(children){
   return null;
 }
 async function gListFolderChildren(folderId){
+  const cfg = gCfg();
   const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,mimeType)&pageSize=100&orderBy=name`;
-  const res = await fetch(url, { headers:{ Authorization:`Bearer ${gState.token}` } });
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,mimeType)&pageSize=100&orderBy=name&key=${cfg.apiKey}`;
+  const res = await fetch(url);
   if(!res.ok) return [];
   const data = await res.json();
   return data.files || [];
@@ -1252,10 +1198,11 @@ function fmtFromFiles(children, fallback){
   return fallback || (exts[0] ? exts[0].toUpperCase() : "Otro");
 }
 
-$("#gSync").addEventListener("click", async ()=>{
+async function syncCatalog(){
   const cfg = gCfg();
-  if(!cfg.sheetId){ gStatus("Pegá el ID de tu planilla resiliencia_metadata."); return; }
-  $("#gSync").disabled = true; gStatus("Leyendo la planilla…");
+  if(!cfg.apiKey){ gSetPill("err","Falta API Key"); gStatus("Falta configurar la API Key en DRIVE_CONFIG dentro del archivo."); return; }
+  if(!cfg.sheetId){ gStatus("Falta el ID de la planilla en DRIVE_CONFIG."); return; }
+  $("#gSync").disabled = true; gSetPill("off","Sincronizando…"); gStatus("Leyendo la planilla…");
   try{
     const rows = await gFetchSheetRows(cfg);
     if(rows.length < 2){ gStatus("La planilla no tiene filas de datos todavía."); $("#gSync").disabled=false; return; }
@@ -1331,52 +1278,11 @@ $("#gSync").addEventListener("click", async ()=>{
     gSetPill("err","Error de sincronización"); gStatus(err.message||String(err));
   }
   $("#gSync").disabled = false;
-});
+}
+$("#gSync").addEventListener("click", syncCatalog);
 function FMT_STATS_RESET(){ Object.keys(FMT_STATS).forEach(k=>delete FMT_STATS[k]); }
 
-async function gAppendRow(cfg, row){
-  const sheetName = cfg.range.split("!")[0] || "Table1";
-  const headerRows = await gFetchSheetRows({...cfg, range:`${sheetName}!1:1`});
-  const header = (headerRows[0]||[]).map(h=>h.trim().toLowerCase());
-  const pick = (h) => {
-    if(h==="id") return row.id;
-    if(h==="titulo") return row.titulo;
-    if(h.includes("coorden")) return row.coordenadas||"";
-    if(h==="tipologia") return row.tipologia;
-    if(h==="subproyecto") return row.subproyecto;
-    if(h==="fuente") return row.fuente;
-    if(h==="formato") return row.formato;
-    if(h==="referencia") return row.referencia||"";
-    if(h==="ubicacion") return row.ubicacion;
-    return "";
-  };
-  const line = header.map(pick);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${encodeURIComponent(sheetName+"!A:A")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-  const res = await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${gState.token}`,"Content-Type":"application/json"},body:JSON.stringify({values:[line]})});
-  if(!res.ok) throw new Error(`No se pudo escribir en la planilla (Sheets API ${res.status}). Revisá que el Client ID tenga permiso de escritura y que hayas aceptado el acceso.`);
-}
-$("#nSubmit").addEventListener("click", async ()=>{
-  const cfg = gCfg();
-  const titulo=$("#nTitulo").value.trim(), ubicacion=$("#nUbicacion").value.trim(), fuente=$("#nFuente").value.trim();
-  if(!gState.token){ $("#nStatus").textContent="Conectá tu cuenta de Google primero (arriba)."; return; }
-  if(!cfg.sheetId){ $("#nStatus").textContent="Falta el ID de la planilla."; return; }
-  if(!titulo||!ubicacion||!fuente){ $("#nStatus").textContent="Completá título, ubicación y quién sube el dato."; return; }
-  $("#nSubmit").disabled = true; $("#nStatus").textContent="Agregando fila a la planilla…";
-  try{
-    const id = "n"+Date.now().toString(36);
-    await gAppendRow(cfg, {
-      id, titulo, tipologia:$("#nTipologia").value, subproyecto:$("#nSubproyecto").value,
-      fuente, formato:$("#nFormato").value.trim(), ubicacion, referencia:$("#nReferencia").value.trim()
-    });
-    $("#nStatus").textContent="Agregado. Sincronizando…";
-    $("#nTitulo").value=""; $("#nUbicacion").value=""; $("#nFuente").value=""; $("#nFormato").value=""; $("#nReferencia").value="";
-    await $("#gSync").onclick?.() ?? $("#gSync").click();
-    $("#nStatus").textContent="Listo, ya está en el dashboard y el mapa.";
-  }catch(err){
-    $("#nStatus").textContent = err.message||String(err);
-  }
-  $("#nSubmit").disabled = false;
-});
+
 
 /* ===================== administrar ===================== */
 function renderCatalog(){
@@ -1399,6 +1305,7 @@ function renderCatalog(){
 /* ===================== arranque ===================== */
 renderKpis(); renderRecent(); renderDonut(); renderEjeCards(); renderCatalog(); renderLegend(); renderTree();
 if(window.L) initMap(); else window.addEventListener("load",()=>{ if(window.L) initMap(); });
+syncCatalog();
 </script>
 </body>
 </html>
