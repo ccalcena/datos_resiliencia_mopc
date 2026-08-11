@@ -188,7 +188,7 @@
   .grp[data-open="false"] .caret{transform:rotate(-90deg)}
   .grp[data-open="false"] .grp-body{display:none}
   .lyr{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:var(--space-3);
-    padding:6px var(--space-6) 6px 30px;font-size:12.5px;transition:background 150ms var(--ease-out)}
+    padding:2px var(--space-6) 2px 30px;font-size:12.5px;transition:background 150ms var(--ease-out)}
   .lyr:hover{background:color-mix(in srgb,var(--color-accent) 6%,transparent)}
   .lyr .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-neutral-700);cursor:pointer;transition:color 150ms var(--ease-out)}
   .lyr[data-on="true"] .nm{color:var(--color-text)}
@@ -208,9 +208,9 @@
     display:grid;grid-template-rows:0fr;opacity:0;overflow:hidden;border-bottom:0 solid var(--color-divider);
     transition:grid-template-rows 200ms var(--ease-in-out),opacity 160ms var(--ease-out),padding 200ms var(--ease-in-out)}
   .meta > div{min-height:0;overflow:hidden}
-  .lyr-wrap[data-expanded="true"] .meta{grid-template-rows:1fr;opacity:1;padding:var(--space-3) var(--space-6) var(--space-4) 30px;border-bottom-width:1px}
-  .meta dl{display:grid;grid-template-columns:auto 1fr;gap:3px var(--space-4);margin:0 0 var(--space-3)}
-  .meta dt{color:var(--color-neutral-600)}
+  .lyr-wrap[data-expanded="true"] .meta{grid-template-rows:1fr;opacity:1;padding:6px var(--space-6) 8px 30px;border-bottom-width:1px}
+  .meta dl{display:grid;grid-template-columns:auto 1fr;gap:0 var(--space-4);margin:0;line-height:1.3}
+  .meta dt{color:var(--color-neutral-600);margin:0}
   .meta dd{margin:0;color:var(--color-neutral-800)}
   .filelist{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
   .filelist span{font-size:9.5px;padding:1px 5px;border-radius:3px;background:var(--color-neutral-100);
@@ -691,18 +691,18 @@ function buildLayer(l){
     <div class="pop-dl"><button class="btn btn-primary btn-sm" onclick="openDownload(['${l.id}'])">Descargar carpeta ZIP</button></div>`;
   if(l.geojson){
     return L.geoJSON(l.geojson,{
-      style:{color:c,weight:l.geom==="line"?2.2:1.6,opacity:.9,fillColor:c,fillOpacity:l.geom==="polygon"?.16:.7},
-      pointToLayer:(f,latlng)=>L.circleMarker(latlng,{radius:3.4,color:c,weight:1,fillColor:c,fillOpacity:.7}),
+      style:{color:c,weight:l.geom==="line"?3.4:2.6,opacity:1,fillColor:c,fillOpacity:l.geom==="polygon"?.32:.85},
+      pointToLayer:(f,latlng)=>L.circleMarker(latlng,{radius:6,color:"#fff",weight:1.5,fillColor:c,fillOpacity:.95}),
       onEachFeature:(f,layer)=>layer.bindPopup(popBase)
     });
   }
   const g = L.layerGroup();
   if(l.geom==="point"){
-    l.g.forEach(p=>g.addLayer(L.circleMarker(p,{radius:3.4,color:c,weight:1,fillColor:c,fillOpacity:.7}).bindPopup(popBase)));
+    l.g.forEach(p=>g.addLayer(L.circleMarker(p,{radius:6,color:"#fff",weight:1.5,fillColor:c,fillOpacity:.95}).bindPopup(popBase)));
   } else if(l.geom==="line"){
-    l.g.forEach(line=>g.addLayer(L.polyline(line,{color:c,weight:2.2,opacity:.9}).bindPopup(popBase)));
+    l.g.forEach(line=>g.addLayer(L.polyline(line,{color:c,weight:3.4,opacity:1}).bindPopup(popBase)));
   } else {
-    l.g.forEach(poly=>g.addLayer(L.polygon(poly,{color:c,weight:1.6,opacity:.95,fillColor:c,fillOpacity:.16}).bindPopup(popBase)));
+    l.g.forEach(poly=>g.addLayer(L.polygon(poly,{color:c,weight:2.6,opacity:1,fillColor:c,fillOpacity:.32}).bindPopup(popBase)));
   }
   return g;
 }
@@ -759,6 +759,7 @@ function renderTree(){
             </span>
           </div>
           <div class="meta">
+            <div>
             <dl>
               <dt>Eje</dt><dd>${esc(EJES[l.eje].name)}</dd>
               <dt>Zona</dt><dd>${esc(ZONAS[l.zona].name)}</dd>
@@ -770,6 +771,7 @@ function renderTree(){
             </dl>
             <div>Archivos en la carpeta:</div>
             <div class="filelist">${l.files.map(x=>`<span>${esc(l.name)}.${esc(x)}</span>`).join("")}</div>
+            </div>
           </div>
         </div>`).join("")}</div>
     </div>`;
