@@ -16,6 +16,7 @@
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/shpjs@4/dist/shp.js"></script>
 <script src="https://unpkg.com/proj4@2/dist/proj4.js"></script>
+<script src="https://unpkg.com/@tmcw/togeojson@5/dist/togeojson.umd.js"></script>
 <style>
   :root{
     --font-sf: -apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
@@ -414,7 +415,7 @@
       <div class="mapwrap">
         <div id="map"></div>
         <div class="overlay mapnote">
-          <strong>Vista previa de geometría.</strong> Los contornos que ves son una representación de cada capa para ubicarla en el territorio. El ZIP entrega la carpeta completa del repositorio, con los 6 archivos que necesita cada shapefile.
+          <strong>Geometría real del repositorio.</strong> Los contornos que ves son la geometría real de cada capa, leída directamente de los shapefiles en Drive. Si una capa aparece como un solo punto con el aviso "ubicación aproximada", es que no se pudo leer su geometría real todavía.
         </div>
         <div class="overlay legend" id="mapLegend"></div>
       </div>
@@ -676,7 +677,7 @@ let map, panes={}, drawn={}, mapFitted=false;
 function initMap(){
   map = L.map("map",{center:[-25.2700,-57.6420],zoom:14,zoomControl:true,attributionControl:true});
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{
-    attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC (vista previa)',
+    attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC',
     subdomains:"abcd", maxZoom:20
   }).addTo(map);
   CATALOG.forEach(l=>{ drawn[l.id] = buildLayer(l); if(l.on) drawn[l.id].addTo(map); });
@@ -709,7 +710,13 @@ function buildLayer(l){
 function setLayer(id,on){
   const l = byId(id); if(!l) return; l.on = on;
   if(!map) return;
-  if(on) drawn[id].addTo(map); else map.removeLayer(drawn[id]);
+  if(on){ drawn[id].addTo(map); fitToLayer(l); } else map.removeLayer(drawn[id]);
+}
+function fitToLayer(l){
+  try{
+    if(l.geojson){ const b=L.geoJSON(l.geojson).getBounds(); if(b.isValid()) map.fitBounds(b.pad(.25)); return; }
+    if(l.g){ const pts=[]; l.g.forEach(x=>Array.isArray(x[0])?pts.push(...x):pts.push(x)); if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(.25)); }
+  }catch(e){}
 }
 function fitActive(){
   const boundsList=[];
@@ -792,9 +799,8 @@ function renderTree(){
   }));
   $$("[data-dl2]").forEach(b=>b.addEventListener("click",()=>openDownload([b.dataset.dl2])));
   $$("[data-zoom]").forEach(n=>n.addEventListener("click",()=>{
-    const l=byId(n.dataset.zoom); if(!l.on){ setLayer(l.id,true); refreshTree(); }
-    const pts=[]; l.g.forEach(x=>Array.isArray(x[0])?pts.push(...x):pts.push(x));
-    map.fitBounds(L.latLngBounds(pts).pad(.25));
+    const l=byId(n.dataset.zoom); if(!l.on){ setLayer(l.id,true); refreshTree(); return; }
+    fitToLayer(l);
   }));
   const n = CATALOG.filter(l=>l.on).length;
   $("#activeCount").textContent = n===1?"1 capa activa":`${n} capas activas`;
@@ -1092,12 +1098,19 @@ async function gFetchSheetRows(cfg){
   const data = await res.json();
   return data.values || [];
 }
+function driveAccessMessage(status){
+  return status===403
+    ? "Drive rechazó el acceso (403): la carpeta no está realmente compartida como \"Cualquiera con el enlace\" — puede seguir restringida a tu organización, o el cambio de permiso no se guardó."
+    : status===404
+    ? "Drive dice que el archivo no existe (404) para un acceso sin sesión — normalmente significa que el permiso público todavía no está aplicado ahí (revisá que sea \"Cualquiera con el enlace — Lector\", no \"Restringido\" ni \"solo en mi organización\")."
+    : `Drive API respondió ${status}.`;
+}
 async function gFindDriveFileByName(name){
   const cfg = gCfg();
   const q = encodeURIComponent(`name = '${name.replace(/'/g,"\\'")}' and trashed = false`);
   const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,parents)&pageSize=5&key=${cfg.apiKey}`;
   const res = await fetch(url);
-  if(!res.ok) return null;
+  if(!res.ok) throw new Error(driveAccessMessage(res.status));
   const data = await res.json();
   return (data.files && data.files[0]) || null;
 }
@@ -1150,19 +1163,49 @@ function parseCsvPoints(text){
   }).filter(Boolean);
   return features.length ? {type:"FeatureCollection",features} : null;
 }
-async function resolveGeometry(children){
+async function resolveGeometry(children, baseName){
+  // si varios shapefiles comparten la misma carpeta padre, quedarnos solo con los archivos
+  // cuyo nombre base coincide con el dataset — evita mezclar geometrías de otro dataset
+  if(baseName){
+    const base = baseName.toLowerCase().replace(/\.[a-z0-9]+$/,"");
+    const matching = children.filter(c=>c.name.toLowerCase().replace(/\.[a-z0-9]+$/,"")===base);
+    if(matching.length) children = matching;
+  }
   const byExt = {};
   children.forEach(c=>{ const e=extOf(c.name); if(!byExt[e]) byExt[e]=c; });
   try{
-    if(byExt.shp && byExt.dbf){
-      const [shpBuf,dbfBuf] = await Promise.all([driveFileArrayBuffer(byExt.shp.id), driveFileArrayBuffer(byExt.dbf.id)]);
+    if(byExt.zip){
+      const zipBuf = await driveFileArrayBuffer(byExt.zip.id);
+      const gj = await shp(zipBuf);
+      return normalizeGeojson(Array.isArray(gj)?gj[0]:gj);
+    }
+    if(byExt.shp){
+      const [shpBuf] = await Promise.all([driveFileArrayBuffer(byExt.shp.id)]);
       const zip = new JSZip();
-      zip.file("data.shp", shpBuf); zip.file("data.dbf", dbfBuf);
+      zip.file("data.shp", shpBuf);
+      zip.file("data.dbf", byExt.dbf ? await driveFileArrayBuffer(byExt.dbf.id) : new Uint8Array([3,0,0,0,0,0,0,0,33,0,0,0,1,1,13]).buffer);
       if(byExt.shx) zip.file("data.shx", await driveFileArrayBuffer(byExt.shx.id));
       if(byExt.prj) zip.file("data.prj", await driveFileText(byExt.prj.id));
       const zipBuf = await zip.generateAsync({type:"arraybuffer"});
       const gj = await shp(zipBuf);
       return normalizeGeojson(Array.isArray(gj)?gj[0]:gj);
+    }
+    if(byExt.kmz){
+      const buf = await driveFileArrayBuffer(byExt.kmz.id);
+      const inner = await JSZip.loadAsync(buf);
+      const kmlEntry = Object.values(inner.files).find(f=>/\.kml$/i.test(f.name) && !f.dir);
+      if(kmlEntry){
+        const kmlText = await kmlEntry.async("text");
+        const dom = new DOMParser().parseFromString(kmlText, "text/xml");
+        const gj = toGeoJSON.kml(dom);
+        return normalizeGeojson(gj);
+      }
+    }
+    if(byExt.kml){
+      const kmlText = await driveFileText(byExt.kml.id);
+      const dom = new DOMParser().parseFromString(kmlText, "text/xml");
+      const gj = toGeoJSON.kml(dom);
+      return normalizeGeojson(gj);
     }
     if(byExt.geojson || byExt.json){
       const gj = JSON.parse(await driveFileText((byExt.geojson||byExt.json).id));
@@ -1172,6 +1215,7 @@ async function resolveGeometry(children){
       const gj = parseCsvPoints(await driveFileText(byExt.csv.id));
       if(gj) return normalizeGeojson(gj);
     }
+    return {error: `no se encontró .shp/.kml/.kmz/.geojson/.csv entre los archivos: ${children.map(c=>c.name).join(", ") || "(carpeta vacía)"}`};
   }catch(err){ return {error: err.message||String(err)}; }
   return null;
 }
@@ -1180,9 +1224,16 @@ async function gListFolderChildren(folderId){
   const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
   const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,mimeType)&pageSize=100&orderBy=name&key=${cfg.apiKey}`;
   const res = await fetch(url);
-  if(!res.ok) return [];
+  if(!res.ok) throw new Error(driveAccessMessage(res.status));
   const data = await res.json();
   return data.files || [];
+}
+async function gCheckDriveAccess(){
+  const cfg = gCfg();
+  const url = `https://www.googleapis.com/drive/v3/files/${cfg.rootFolder}?fields=id,name,mimeType&key=${cfg.apiKey}`;
+  const res = await fetch(url);
+  if(!res.ok) return {ok:false, message: driveAccessMessage(res.status)};
+  return {ok:true};
 }
 function humanSize(bytes){
   if(!bytes) return "—";
@@ -1208,6 +1259,13 @@ async function syncCatalog(){
   try{
     const rows = await gFetchSheetRows(cfg);
     if(rows.length < 2){ gStatus("La planilla no tiene filas de datos todavía."); $("#gSync").disabled=false; return; }
+    gStatus("Verificando acceso a la carpeta de Drive…");
+    const access = await gCheckDriveAccess();
+    if(!access.ok){
+      gSetPill("err","Sin acceso a Drive");
+      gStatus(`No se pudo leer la carpeta de Drive — por eso ninguna capa muestra su geometría real, solo ubicaciones aproximadas. ${access.message}`);
+      $("#gSync").disabled = false; return;
+    }
     const header = rows[0].map(h=>h.trim().toLowerCase());
     const idx = name => header.indexOf(name);
     const iID=idx("id"), iTitulo=idx("titulo"), iEpsg=header.findIndex(h=>h.includes("coorden")),
@@ -1231,22 +1289,31 @@ async function syncCatalog(){
       let files = fmtHint ? [fmtHint.toLowerCase()] : ["dat"], size = "—", folder = ubicacion || "sin ubicación en planilla", fmt = fmtHint || "Otro", driveFiles = null;
       let geoRes = null, geoNote = "formato no soportado para geometría real";
       if(ubicacion){
-        const hit = await gFindDriveFileByName(ubicacion);
+        let hit = null;
+        try{ hit = await gFindDriveFileByName(ubicacion); }
+        catch(err){ geoNote = err.message||String(err); }
         if(hit){
           const parentId = hit.mimeType==="application/vnd.google-apps.folder" ? hit.id : (hit.parents && hit.parents[0]);
           if(parentId){
-            const children = await gListFolderChildren(parentId);
-            if(children.length){
-              const realFiles = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder");
-              files = realFiles.map(c=>c.name.includes(".")?c.name.split(".").pop():c.name);
-              driveFiles = realFiles.map(c=>({id:c.id,name:c.name,size:+c.size||0}));
-              size = humanSize(children.reduce((a,c)=>a+(+c.size||0),0));
-              fmt = fmtFromFiles(children, fmtHint);
-              gStatus(`Leyendo geometría real: ${titulo}…`);
-              const res = await resolveGeometry(children);
-              if(res && res.error) geoNote = res.error;
-              else if(res) geoRes = res;
-            }
+            try{
+              let children = await gListFolderChildren(parentId);
+              let realFiles = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder");
+              // si la carpeta solo contiene subcarpetas, bajamos un nivel a buscar los archivos reales
+              if(!realFiles.length){
+                const subfolder = children.find(c=>c.mimeType==="application/vnd.google-apps.folder");
+                if(subfolder){ children = await gListFolderChildren(subfolder.id); realFiles = children.filter(c=>c.mimeType!=="application/vnd.google-apps.folder"); }
+              }
+              if(children.length){
+                files = realFiles.map(c=>c.name.includes(".")?c.name.split(".").pop():c.name);
+                driveFiles = realFiles.map(c=>({id:c.id,name:c.name,size:+c.size||0}));
+                size = humanSize(children.reduce((a,c)=>a+(+c.size||0),0));
+                fmt = fmtFromFiles(children, fmtHint);
+                gStatus(`Leyendo geometría real: ${titulo}…`);
+                const res = await resolveGeometry(children, hit.mimeType==="application/vnd.google-apps.folder" ? null : hit.name);
+                if(res && res.error) geoNote = res.error;
+                else if(res) geoRes = res;
+              } else geoNote = "la carpeta está vacía en Drive";
+            }catch(err){ geoNote = err.message||String(err); }
           }
           folder = hit.name;
         }
