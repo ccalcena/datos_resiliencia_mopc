@@ -20,7 +20,7 @@
 <style>
   :root{
     --font-sf: -apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
-    --eje-urb:#1a2f6b; --eje-soc:#c9860a; --eje-amb:#0f5c3f;
+    --eje-urb:#d98a76; --eje-soc:#c17a2e; --eje-amb:#1f5f66;
     --panel:#ffffff; --page-bg:#fbfbfd; --color-error:#b3261e;
     --color-bg: rgba(255,255,255,.8); --color-text:#1d1d1f;
     --color-accent:#1a2f6b;
@@ -217,9 +217,9 @@
   .filelist span{font-size:9.5px;padding:1px 5px;border-radius:3px;background:var(--color-neutral-100);
     border:1px solid var(--color-neutral-200);color:var(--color-neutral-600)}
 
-  .mapwrap{position:relative;min-height:0;background:#000000}
-  #map{position:absolute;inset:0;background:#000000}
-  .leaflet-container{background:#000000;font-family:var(--font-body)}
+  .mapwrap{position:relative;min-height:0;background:#e7ebe2}
+  #map{position:absolute;inset:0;background:#e7ebe2}
+  .leaflet-container{background:#e7ebe2;font-family:var(--font-body)}
   .leaflet-tile-pane{filter:none}
   .leaflet-control-attribution{background:rgba(22,24,38,.82)!important;color:var(--color-neutral-500)!important;font-size:9.5px!important}
   .leaflet-control-attribution a{color:var(--color-neutral-400)!important}
@@ -676,7 +676,7 @@ function renderEjeCards(){
 let map, panes={}, drawn={}, mapFitted=false;
 function initMap(){
   map = L.map("map",{center:[-25.2700,-57.6420],zoom:14,zoomControl:true,attributionControl:true});
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
     attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC',
     subdomains:"abcd", maxZoom:20
   }).addTo(map);
