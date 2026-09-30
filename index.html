@@ -217,10 +217,11 @@
   .filelist span{font-size:9.5px;padding:1px 5px;border-radius:3px;background:var(--color-neutral-100);
     border:1px solid var(--color-neutral-200);color:var(--color-neutral-600)}
 
-  .mapwrap{position:relative;min-height:0;background:#e7ebe2}
-  #map{position:absolute;inset:0;background:#e7ebe2}
-  .leaflet-container{background:#e7ebe2;font-family:var(--font-body)}
-  .leaflet-tile-pane{filter:none}
+  /* mapa base: OpenStreetMap en grises muteados */
+  .mapwrap{position:relative;min-height:0;background:#e9e9ec}
+  #map{position:absolute;inset:0;background:#e9e9ec}
+  .leaflet-container{background:#e9e9ec;font-family:var(--font-body)}
+  .leaflet-tile-pane{filter:grayscale(1) contrast(.82) brightness(1.08)}
   .leaflet-control-attribution{background:rgba(22,24,38,.82)!important;color:var(--color-neutral-500)!important;font-size:9.5px!important}
   .leaflet-control-attribution a{color:var(--color-neutral-400)!important}
   .leaflet-bar{border:1px solid var(--color-neutral-800)!important;box-shadow:none!important}
@@ -676,9 +677,10 @@ function renderEjeCards(){
 let map, panes={}, drawn={}, mapFitted=false;
 function initMap(){
   map = L.map("map",{center:[-25.2700,-57.6420],zoom:14,zoomControl:true,attributionControl:true});
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
-    attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC',
-    subdomains:"abcd", maxZoom:20
+  // Mapa base: OpenStreetMap estándar; el filtro CSS en .leaflet-tile-pane lo lleva a grises muteados
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Geometrías: MOPC',
+    maxZoom:19
   }).addTo(map);
   CATALOG.forEach(l=>{ drawn[l.id] = buildLayer(l); if(l.on) drawn[l.id].addTo(map); });
   if($(".view[data-view='mapa']").hasAttribute("data-active")){ map.invalidateSize(); fitActive(); mapFitted=true; }
