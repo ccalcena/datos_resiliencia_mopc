@@ -462,7 +462,7 @@
         <div style="border-top:1px solid var(--color-neutral-700);padding-top:var(--space-4);display:grid;gap:var(--space-3)">
           <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
             <strong style="font-size:12.5px">Administrador</strong>
-            <input class="input" id="accKey" type="password" placeholder="Clave de administrador" style="max-width:240px">
+            <input class="input" id="accKey" type="password" placeholder="Clave de administrador" style="max-width:240px" autocomplete="off">
             <button class="btn btn-primary btn-sm" id="accCargar">Ver solicitudes y permitidos</button>
           </div>
           <div id="accAdmin"></div>
@@ -480,6 +480,7 @@
       </div>
     </div>
   </section>
+
 </div>
 
 <!-- ============ MODAL DE DESCARGA ============ -->
@@ -702,10 +703,11 @@ function renderEjeCards(){
 let map, panes={}, drawn={}, mapFitted=false;
 function initMap(){
   map = L.map("map",{center:[-25.2700,-57.6420],zoom:14,zoomControl:true,attributionControl:true});
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
-    attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC',
-    subdomains:"abcd", maxZoom:20
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{
+    attribution:'Imagery © Esri, Maxar, Earthstar Geographics · Geometrías: MOPC',
+    maxZoom:19
   }).addTo(map);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,pane:"overlayPane"}).addTo(map).setZIndex(1);
   CATALOG.forEach(l=>{ drawn[l.id] = buildLayer(l); if(l.on) drawn[l.id].addTo(map); });
   if($(".view[data-view='mapa']").hasAttribute("data-active")){ map.invalidateSize(); fitActive(); mapFitted=true; }
 }
@@ -1446,6 +1448,12 @@ const accDemoKey = "acceso_demo_v1";
 const accDemo = () => { try{ return JSON.parse(localStorage.getItem(accDemoKey))||{pendientes:[],permitidos:[]}; }catch(e){ return {pendientes:[],permitidos:[]}; } };
 const accSave = d => localStorage.setItem(accDemoKey, JSON.stringify(d));
 const accSelected = new Set();
+const ACC_FALLO = "No se pudo contactar al Apps Script. Revisá que la implementación sea \u201cCualquier persona\u201d y que hayas publicado la última versión (Implementar > Administrar implementaciones > Nueva versión).";
+async function accFetchJson(url, opts){
+  let r; try{ r = await fetch(url, opts); }catch(e){ throw new Error(ACC_FALLO); }
+  const t = await r.text();
+  try{ return JSON.parse(t); }catch(e){ throw new Error(ACC_FALLO); }
+}
 function renderAccLayers(){
   const box = $("#accCapas"); if(!box) return;
   const f = ($("#accFiltro").value||"").toLowerCase();
@@ -1457,13 +1465,16 @@ async function accEnviar(){
   const nombre=$("#accNombre").value.trim(), correo=$("#accCorreo").value.trim().toLowerCase(), msg=$("#accMsg");
   const capas = CATALOG.filter(l=>accSelected.has(l.id)).map(l=>({id:l.id,name:l.name,folder:l.folder}));
   if(!nombre || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo) || !capas.length){ msg.textContent="Completá nombre, correo válido y al menos una capa."; return; }
-  $("#accEnviar").disabled = true; msg.textContent="Enviando…";
+  $("#accEnviar").disabled = true; msg.textContent="Enviando\u2026";
   try{
     if(ACCESS_CONFIG.api){
-      const r = await fetch(ACCESS_CONFIG.api,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({nombre,correo,capas})});
-      const j = await r.json(); if(!j.ok) throw new Error(j.error||"Error");
-    } else { const d=accDemo(); d.pendientes.push({id:Math.random().toString(36).slice(2,10),fecha:new Date().toISOString(),nombre,correo,capas:JSON.stringify(capas),estado:"pendiente"}); accSave(d); }
-    msg.textContent="Solicitud enviada. Te avisan por correo cuando se apruebe.";
+      const j = await accFetchJson(ACCESS_CONFIG.api,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({nombre,correo,capas})});
+      if(!j.ok) throw new Error(j.error||"Error del script");
+      msg.textContent = j.aviso ? j.aviso : "Solicitud enviada y registrada en la planilla. Te avisan por correo cuando se apruebe.";
+    } else {
+      const d=accDemo(); d.pendientes.push({id:Math.random().toString(36).slice(2,10),fecha:new Date().toISOString(),nombre,correo,capas:JSON.stringify(capas),estado:"pendiente"}); accSave(d);
+      msg.textContent="Solicitud enviada (demo local).";
+    }
     accSelected.clear(); $("#accSel").textContent=""; renderAccLayers();
   }catch(err){ msg.textContent="No se pudo enviar: "+(err.message||err); }
   $("#accEnviar").disabled = false;
@@ -1479,13 +1490,13 @@ async function accCall(action,extra){
     accSave(d); return {ok:true};
   }
   const q = new URLSearchParams({action,key:$("#accKey").value,...extra});
-  return (await fetch(ACCESS_CONFIG.api+"?"+q)).json();
+  return accFetchJson(ACCESS_CONFIG.api+"?"+q);
 }
 async function accCargar(){
   const box=$("#accAdmin");
   if(ACCESS_CONFIG.api && !$("#accKey").value){ box.innerHTML=`<span class="muted" style="font-size:11.5px">Ingresá la clave de administrador.</span>`; return; }
-  box.innerHTML=`<span class="muted" style="font-size:11.5px">Cargando…</span>`;
-  let j; try{ j = await accCall("list",{}); }catch(e){ j={ok:false,error:String(e)}; }
+  box.innerHTML=`<span class="muted" style="font-size:11.5px">Cargando\u2026</span>`;
+  let j; try{ j = await accCall("list",{}); }catch(e){ j={ok:false,error:e.message||String(e)}; }
   if(!j.ok){ box.innerHTML=`<span class="muted" style="font-size:11.5px">${esc(j.error||"Error")}</span>`; return; }
   const names = s => { try{ return JSON.parse(s).map(c=>c.name).join(", "); }catch(e){ return ""; } };
   const days = v => Math.max(0, Math.ceil((new Date(v)-Date.now())/864e5));
@@ -1493,13 +1504,19 @@ async function accCargar(){
   const perm = j.permitidos.map(p=>`<tr><td><div style="font-weight:500;color:var(--color-text)">${esc(p.nombre)}</div><div class="muted" style="font-size:10.5px">${esc(p.correo)}</div></td><td style="font-size:11.5px">${esc(names(p.capas))}</td><td class="mono" style="font-size:11.5px">${days(p.vence)} días</td><td style="text-align:right"><button class="btn btn-sm" data-acc-rev="${esc(p.correo)}">Revocar</button></td></tr>`).join("");
   box.innerHTML = `<div class="kicker" style="margin:0 0 4px">Pendientes (${j.pendientes.length})</div>`+(pend?`<table class="tbl"><tbody>${pend}</tbody></table>`:`<p class="muted" style="font-size:11.5px;margin:0 0 8px">Sin solicitudes pendientes.</p>`)+
     `<div class="kicker" style="margin:12px 0 4px">Personas con acceso (${j.permitidos.length})</div>`+(perm?`<table class="tbl"><thead><tr><th>Persona</th><th>Capas</th><th>Vence en</th><th></th></tr></thead><tbody>${perm}</tbody></table>`:`<p class="muted" style="font-size:11.5px;margin:0">Nadie tiene acceso activo.</p>`);
-  const act=(sel,attr,action,key)=>$$(sel).forEach(b=>b.addEventListener("click",async()=>{ b.disabled=true; await accCall(action,{[key]:b.getAttribute(attr)}); accCargar(); }));
+  const act=(sel,attr,action,key)=>$$(sel).forEach(b=>b.addEventListener("click",async()=>{ b.disabled=true; try{ await accCall(action,{[key]:b.getAttribute(attr)}); }catch(e){} accCargar(); }));
   act("[data-acc-ok]","data-acc-ok","approve2","id"); act("[data-acc-no]","data-acc-no","reject2","id"); act("[data-acc-rev]","data-acc-rev","revoke","correo");
 }
 $("#accEnviar").addEventListener("click",accEnviar);
 $("#accCargar").addEventListener("click",accCargar);
 $("#accFiltro").addEventListener("input",renderAccLayers);
-if(ACCESS_CONFIG.api){ const m=$("#accMode"); m.textContent="Conectado"; m.dataset.state="ok"; }
+(async()=>{
+  const m=$("#accMode");
+  if(!ACCESS_CONFIG.api){ m.textContent="Demo local"; return; }
+  m.textContent="Comprobando\u2026";
+  try{ const j = await accFetchJson(ACCESS_CONFIG.api+"?action=ping"); if(!j.ok) throw 0; m.textContent="Conectado"; m.dataset.state="on"; }
+  catch(e){ m.textContent="Sin conexión con el script"; m.dataset.state="err"; m.title=ACC_FALLO; }
+})();
 
 /* ===================== arranque ===================== */
 renderKpis(); renderRecent(); renderDonut(); renderEjeCards(); renderCatalog(); renderLegend(); renderTree();
