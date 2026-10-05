@@ -518,7 +518,7 @@ const ZONA_CENTERS = {
   banco:[-25.2620,-57.6640], asu:[-25.2820,-57.6420], py:[-23.4,-58.0], otras:[-25.2700,-57.6420]
 };
 const SHP = ["shp","shx","dbf","prj","cpg","qmd"];
-const LIC_CC = "CC BY 4.0";
+const LIC_CC = "RESILIENCIA URBANA DE LA FRANJA COSTERA DE ASUNCIÓN - UEP BIRF9145";
 
 /* geometrías de referencia sobre la Bahía y la Franja Costera */
 let seed = 20260730;
@@ -1026,7 +1026,7 @@ ${citeOf(l)}
   zip.file(`${rootName}/LICENCIA.txt`,
 `Licencias presentes en este paquete: ${ls.map(l=>l.lic).filter((v,i,a)=>a.indexOf(v)===i).join(" | ")}
 
-CC BY 4.0 — se permite copiar, redistribuir y adaptar, incluso comercialmente,
+UEP BIRF9145 "PROYECTO DE RESILIENCIA URBANA DE LA FRANJA COSTERA  — se permite copiar, redistribuir y adaptar, incluso comercialmente,
 citing al Ministerio de Obras Públicas y Comunicaciones (MOPC) del Paraguay.
 Las capas marcadas "Uso interno MOPC" no pueden republicarse sin autorización.
 `.replace("citing","citando"));
@@ -1051,7 +1051,7 @@ Cada carpeta viene con los archivos originales tal cual están en la unidad: un 
 no se abre sin sus archivos acompañantes (.shp .shx .dbf .prj .cpg .qmd). No separes ni
 renombres archivos dentro de una carpeta.
 
-Consultas: sig@mopc.gov.py
+Consultas: cecicalena@gmail.com - Cecilia Cálcena (Profesional Ambiental y SIG, Resiliencia Urbana)
 `);
   files.push({name:`${rootName}/LEEME.txt`});
   await new Promise(r=>setTimeout(r,150));
