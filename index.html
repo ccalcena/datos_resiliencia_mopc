@@ -217,11 +217,10 @@
   .filelist span{font-size:9.5px;padding:1px 5px;border-radius:3px;background:var(--color-neutral-100);
     border:1px solid var(--color-neutral-200);color:var(--color-neutral-600)}
 
-  /* mapa base: OpenStreetMap en grises muteados */
-  .mapwrap{position:relative;min-height:0;background:#e9e9ec}
-  #map{position:absolute;inset:0;background:#e9e9ec}
-  .leaflet-container{background:#e9e9ec;font-family:var(--font-body)}
-  .leaflet-tile-pane{filter:grayscale(1) contrast(.82) brightness(1.08)}
+  .mapwrap{position:relative;min-height:0;background:#e7ebe2}
+  #map{position:absolute;inset:0;background:#e7ebe2}
+  .leaflet-container{background:#e7ebe2;font-family:var(--font-body)}
+  .leaflet-tile-pane{filter:none}
   .leaflet-control-attribution{background:rgba(22,24,38,.82)!important;color:var(--color-neutral-500)!important;font-size:9.5px!important}
   .leaflet-control-attribution a{color:var(--color-neutral-400)!important}
   .leaflet-bar{border:1px solid var(--color-neutral-800)!important;box-shadow:none!important}
@@ -364,7 +363,6 @@
         <div>
           <div class="kicker">Panel de control</div>
           <h1>Estado del repositorio</h1>
-          <p class="muted" style="margin:0;font-size:12.5px">Unidad compartida <a href="https://drive.google.com/drive/u/2/folders/1wZRVnMicmCuvqWUDd5tcmABx5HfyV1Ne" target="_blank" rel="noopener" class="mono">/Franja_Costera/</a> · sincronizada hace 12 min</p>
         </div>
       </div>
 
@@ -441,6 +439,33 @@
         <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" id="gSync">Sincronizar ahora</button>
           <span class="muted" style="font-size:11px" id="gStatus"></span>
+        </div>
+      </div>
+
+      <div class="panel gcard" id="accPanel">
+        <div class="phead" style="padding:0;border:0">
+          <h3>Acceso por solicitud</h3>
+          <span class="gpill" id="accMode" data-state="off">Demo local</span>
+        </div>
+        <div class="grow">
+          <div class="field"><label for="accNombre">Nombre</label><input class="input" id="accNombre" autocomplete="name"></div>
+          <div class="field"><label for="accCorreo">Correo Google</label><input class="input" id="accCorreo" type="email" autocomplete="email"></div>
+        </div>
+        <div class="field"><label for="accFiltro">Capas solicitadas <span class="muted" id="accSel"></span></label>
+          <input class="input" id="accFiltro" placeholder="Filtrar capas">
+          <div id="accCapas" style="max-height:150px;overflow:auto;display:grid;gap:2px;margin-top:6px"></div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="accEnviar">Solicitar acceso</button>
+          <span class="muted" style="font-size:11px" id="accMsg"></span>
+        </div>
+        <div style="border-top:1px solid var(--color-neutral-700);padding-top:var(--space-4);display:grid;gap:var(--space-3)">
+          <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+            <strong style="font-size:12.5px">Administrador</strong>
+            <input class="input" id="accKey" type="password" placeholder="Clave de administrador" style="max-width:240px">
+            <button class="btn btn-primary btn-sm" id="accCargar">Ver solicitudes y permitidos</button>
+          </div>
+          <div id="accAdmin"></div>
         </div>
       </div>
 
@@ -677,10 +702,9 @@ function renderEjeCards(){
 let map, panes={}, drawn={}, mapFitted=false;
 function initMap(){
   map = L.map("map",{center:[-25.2700,-57.6420],zoom:14,zoomControl:true,attributionControl:true});
-  // Mapa base: OpenStreetMap estándar; el filtro CSS en .leaflet-tile-pane lo lleva a grises muteados
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Geometrías: MOPC',
-    maxZoom:19
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
+    attribution:'© <a href="https://carto.com/attributions">CARTO</a> · © OpenStreetMap contributors · Geometrías: MOPC',
+    subdomains:"abcd", maxZoom:20
   }).addTo(map);
   CATALOG.forEach(l=>{ drawn[l.id] = buildLayer(l); if(l.on) drawn[l.id].addTo(map); });
   if($(".view[data-view='mapa']").hasAttribute("data-active")){ map.invalidateSize(); fitActive(); mapFitted=true; }
@@ -826,7 +850,7 @@ const COLABORADORES = new Set([
   "crodas.mopc@gmail.com","ambientalmopc@gmail.com","sebarq.mopc@gmail.com","gianninoto.mopc@gmail.com",
   "adriavilapy@gmail.com","mercadolulymabel@gmail.com","fernandoduarte.dipe@gmail.com",
   "elenasofiabarni@gmail.com","maasrenato@gmail.com","ingmariafarias@gmail.com","ibarra.irismaria@gmail.com",
-  "cinbenitez.rurbana.mopc@gmail.com","mibarrola.mopc@gmail.com","cecicalcena@gmail.com", "cinttia.es@gmail.com",
+  "cinbenitez.rurbana.mopc@gmail.com","mibarrola.mopc@gmail.com","cecicalcena@gmail.com"
 ]);
 const CRC = (()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
@@ -1412,7 +1436,70 @@ function renderCatalog(){
       <td style="text-align:right"><button class="btn btn-primary btn-sm" data-dl3="${l.id}">ZIP</button></td>
     </tr>`).join("");
   $$("[data-dl3]").forEach(b=>b.addEventListener("click",()=>openDownload([b.dataset.dl3])));
+  renderAccLayers();
 }
+
+/* ===================== acceso por solicitud ===================== */
+/* api: URL /exec del Apps Script (apps-script/Acceso.gs). Vacío = demo local en este navegador. */
+const ACCESS_CONFIG = { api: "https://script.google.com/macros/s/AKfycbycpRkqWXs9iRuTDBzdz2NtJCXuUm88nlpnh9J3h4BTeBxBN4Q3yHsowk4ZIFHcb6Ce/exec", dias: 5 };
+const accDemoKey = "acceso_demo_v1";
+const accDemo = () => { try{ return JSON.parse(localStorage.getItem(accDemoKey))||{pendientes:[],permitidos:[]}; }catch(e){ return {pendientes:[],permitidos:[]}; } };
+const accSave = d => localStorage.setItem(accDemoKey, JSON.stringify(d));
+const accSelected = new Set();
+function renderAccLayers(){
+  const box = $("#accCapas"); if(!box) return;
+  const f = ($("#accFiltro").value||"").toLowerCase();
+  box.innerHTML = CATALOG.filter(l=>l.name.toLowerCase().includes(f)).map(l=>
+    `<label style="display:flex;gap:8px;align-items:center;font-size:12px;cursor:pointer"><input type="checkbox" data-acc="${esc(l.id)}" ${accSelected.has(l.id)?"checked":""}>${esc(l.name)}</label>`).join("") || `<span class="muted" style="font-size:11.5px">Sin capas</span>`;
+  $$("[data-acc]").forEach(c=>c.addEventListener("change",()=>{ c.checked?accSelected.add(c.dataset.acc):accSelected.delete(c.dataset.acc); $("#accSel").textContent = accSelected.size?`· ${accSelected.size} elegidas`:""; }));
+}
+async function accEnviar(){
+  const nombre=$("#accNombre").value.trim(), correo=$("#accCorreo").value.trim().toLowerCase(), msg=$("#accMsg");
+  const capas = CATALOG.filter(l=>accSelected.has(l.id)).map(l=>({id:l.id,name:l.name,folder:l.folder}));
+  if(!nombre || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo) || !capas.length){ msg.textContent="Completá nombre, correo válido y al menos una capa."; return; }
+  $("#accEnviar").disabled = true; msg.textContent="Enviando…";
+  try{
+    if(ACCESS_CONFIG.api){
+      const r = await fetch(ACCESS_CONFIG.api,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({nombre,correo,capas})});
+      const j = await r.json(); if(!j.ok) throw new Error(j.error||"Error");
+    } else { const d=accDemo(); d.pendientes.push({id:Math.random().toString(36).slice(2,10),fecha:new Date().toISOString(),nombre,correo,capas:JSON.stringify(capas),estado:"pendiente"}); accSave(d); }
+    msg.textContent="Solicitud enviada. Te avisan por correo cuando se apruebe.";
+    accSelected.clear(); $("#accSel").textContent=""; renderAccLayers();
+  }catch(err){ msg.textContent="No se pudo enviar: "+(err.message||err); }
+  $("#accEnviar").disabled = false;
+}
+async function accCall(action,extra){
+  if(!ACCESS_CONFIG.api){
+    const d=accDemo();
+    if(action==="list") return {ok:true,pendientes:d.pendientes.filter(p=>p.estado==="pendiente"),permitidos:d.permitidos};
+    const p=d.pendientes.find(x=>x.id===extra.id);
+    if(action==="approve2"&&p){ p.estado="aprobada"; d.permitidos.push({correo:p.correo,nombre:p.nombre,capas:p.capas,aprobado:new Date().toISOString(),vence:new Date(Date.now()+ACCESS_CONFIG.dias*864e5).toISOString()}); }
+    if(action==="reject2"&&p) p.estado="rechazada";
+    if(action==="revoke") d.permitidos=d.permitidos.filter(x=>x.correo!==extra.correo);
+    accSave(d); return {ok:true};
+  }
+  const q = new URLSearchParams({action,key:$("#accKey").value,...extra});
+  return (await fetch(ACCESS_CONFIG.api+"?"+q)).json();
+}
+async function accCargar(){
+  const box=$("#accAdmin");
+  if(ACCESS_CONFIG.api && !$("#accKey").value){ box.innerHTML=`<span class="muted" style="font-size:11.5px">Ingresá la clave de administrador.</span>`; return; }
+  box.innerHTML=`<span class="muted" style="font-size:11.5px">Cargando…</span>`;
+  let j; try{ j = await accCall("list",{}); }catch(e){ j={ok:false,error:String(e)}; }
+  if(!j.ok){ box.innerHTML=`<span class="muted" style="font-size:11.5px">${esc(j.error||"Error")}</span>`; return; }
+  const names = s => { try{ return JSON.parse(s).map(c=>c.name).join(", "); }catch(e){ return ""; } };
+  const days = v => Math.max(0, Math.ceil((new Date(v)-Date.now())/864e5));
+  const pend = j.pendientes.map(p=>`<tr><td><div style="font-weight:500;color:var(--color-text)">${esc(p.nombre)}</div><div class="muted" style="font-size:10.5px">${esc(p.correo)}</div></td><td style="font-size:11.5px">${esc(names(p.capas))}</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-primary btn-sm" data-acc-ok="${esc(p.id)}">Aprobar</button> <button class="btn btn-sm" data-acc-no="${esc(p.id)}">Rechazar</button></td></tr>`).join("");
+  const perm = j.permitidos.map(p=>`<tr><td><div style="font-weight:500;color:var(--color-text)">${esc(p.nombre)}</div><div class="muted" style="font-size:10.5px">${esc(p.correo)}</div></td><td style="font-size:11.5px">${esc(names(p.capas))}</td><td class="mono" style="font-size:11.5px">${days(p.vence)} días</td><td style="text-align:right"><button class="btn btn-sm" data-acc-rev="${esc(p.correo)}">Revocar</button></td></tr>`).join("");
+  box.innerHTML = `<div class="kicker" style="margin:0 0 4px">Pendientes (${j.pendientes.length})</div>`+(pend?`<table class="tbl"><tbody>${pend}</tbody></table>`:`<p class="muted" style="font-size:11.5px;margin:0 0 8px">Sin solicitudes pendientes.</p>`)+
+    `<div class="kicker" style="margin:12px 0 4px">Personas con acceso (${j.permitidos.length})</div>`+(perm?`<table class="tbl"><thead><tr><th>Persona</th><th>Capas</th><th>Vence en</th><th></th></tr></thead><tbody>${perm}</tbody></table>`:`<p class="muted" style="font-size:11.5px;margin:0">Nadie tiene acceso activo.</p>`);
+  const act=(sel,attr,action,key)=>$$(sel).forEach(b=>b.addEventListener("click",async()=>{ b.disabled=true; await accCall(action,{[key]:b.getAttribute(attr)}); accCargar(); }));
+  act("[data-acc-ok]","data-acc-ok","approve2","id"); act("[data-acc-no]","data-acc-no","reject2","id"); act("[data-acc-rev]","data-acc-rev","revoke","correo");
+}
+$("#accEnviar").addEventListener("click",accEnviar);
+$("#accCargar").addEventListener("click",accCargar);
+$("#accFiltro").addEventListener("input",renderAccLayers);
+if(ACCESS_CONFIG.api){ const m=$("#accMode"); m.textContent="Conectado"; m.dataset.state="ok"; }
 
 /* ===================== arranque ===================== */
 renderKpis(); renderRecent(); renderDonut(); renderEjeCards(); renderCatalog(); renderLegend(); renderTree();
